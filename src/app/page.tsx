@@ -17,6 +17,7 @@ export default function VideoGenerator() {
   const [ratio, setRatio] = useState('16:9');
   const [resolution, setResolution] = useState('720p');
   const [generateAudio, setGenerateAudio] = useState(true);
+  const [model, setModel] = useState('doubao-seedance-1-5-pro-251215');
   const [isGenerating, setIsGenerating] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -148,6 +149,7 @@ export default function VideoGenerator() {
           generateAudio,
           firstFrameUrl,
           lastFrameUrl,
+          model,
         }),
       });
 
@@ -375,7 +377,7 @@ export default function VideoGenerator() {
                 </TabsContent>
               </Tabs>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div>
                   <Label className="text-white text-sm font-medium mb-2 block">
                     时长: {duration} 秒
@@ -416,6 +418,23 @@ export default function VideoGenerator() {
                       <SelectItem value="480p">480p</SelectItem>
                       <SelectItem value="720p">720p</SelectItem>
                       <SelectItem value="1080p">1080p</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label className="text-white text-sm font-medium mb-2 block">生成模型</Label>
+                  <Select value={model} onValueChange={setModel} disabled={isGenerating}>
+                    <SelectTrigger className="bg-slate-700/50 border-slate-600 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-800 border-slate-600">
+                      <SelectItem value="doubao-seedance-1-5-pro-251215">
+                        <div className="flex flex-col">
+                          <span>Doubao Seedance 1.5 Pro</span>
+                          <span className="text-xs text-slate-500">专业版，支持音频生成</span>
+                        </div>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

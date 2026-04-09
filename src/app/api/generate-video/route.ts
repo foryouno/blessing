@@ -10,7 +10,8 @@ export async function POST(request: NextRequest) {
       resolution = '720p', 
       generateAudio = true,
       firstFrameUrl,
-      lastFrameUrl
+      lastFrameUrl,
+      model = 'doubao-seedance-1-5-pro-251215'
     } = await request.json();
     
     if (!prompt && !firstFrameUrl) {
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
     }
 
     const response = await client.videoGeneration(content, {
-      model: 'doubao-seedance-1-5-pro-251215',
+      model,
       duration,
       ratio,
       resolution,
