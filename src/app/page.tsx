@@ -192,7 +192,7 @@ export default function VideoGenerator() {
             <Video className="w-12 h-12 text-purple-400" />
             <h1 className="text-4xl font-bold text-white">AI 视频生成器</h1>
           </div>
-          <p className="text-gray-400 text-lg">输入你的创意描述，AI 为你生成精彩视频</p>
+          <p className="text-gray-400 text-lg">基于火山引擎 · 输入你的创意描述，AI 为你生成精彩视频</p>
         </div>
 
         <div className="max-w-4xl mx-auto">
@@ -432,13 +432,13 @@ export default function VideoGenerator() {
                       <SelectItem value="doubao-seedance-2-0-pro-251215">
                         <div className="flex flex-col">
                           <span>Doubao Seedance 2.0 Pro ✨</span>
-                          <span className="text-xs text-slate-500">最新版本，更好的视频质量</span>
+                          <span className="text-xs text-slate-500">火山引擎 · 最新版本，更好的视频质量</span>
                         </div>
                       </SelectItem>
                       <SelectItem value="doubao-seedance-1-5-pro-251215">
                         <div className="flex flex-col">
                           <span>Doubao Seedance 1.5 Pro</span>
-                          <span className="text-xs text-slate-500">专业版，支持音频生成</span>
+                          <span className="text-xs text-slate-500">火山引擎 · 专业版，支持音频生成</span>
                         </div>
                       </SelectItem>
                     </SelectContent>
