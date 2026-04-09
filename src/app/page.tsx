@@ -17,7 +17,7 @@ export default function VideoGenerator() {
   const [ratio, setRatio] = useState('16:9');
   const [resolution, setResolution] = useState('720p');
   const [generateAudio, setGenerateAudio] = useState(true);
-  const [model, setModel] = useState('doubao-seedance-1-5-pro-251215');
+  const [model, setModel] = useState('doubao-seedance-2-0-pro-251215');
   const [isGenerating, setIsGenerating] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -429,6 +429,12 @@ export default function VideoGenerator() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-slate-800 border-slate-600">
+                      <SelectItem value="doubao-seedance-2-0-pro-251215">
+                        <div className="flex flex-col">
+                          <span>Doubao Seedance 2.0 Pro ✨</span>
+                          <span className="text-xs text-slate-500">最新版本，更好的视频质量</span>
+                        </div>
+                      </SelectItem>
                       <SelectItem value="doubao-seedance-1-5-pro-251215">
                         <div className="flex flex-col">
                           <span>Doubao Seedance 1.5 Pro</span>
