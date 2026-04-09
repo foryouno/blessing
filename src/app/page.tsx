@@ -25,9 +25,11 @@ export default function VideoGenerator() {
   const [lastFrameUrl, setLastFrameUrl] = useState<string | null>(null);
   const [isUploadingFirst, setIsUploadingFirst] = useState(false);
   const [isUploadingLast, setIsUploadingLast] = useState(false);
+  const [activeTab, setActiveTab] = useState('text');
   
   const firstFrameInputRef = useRef<HTMLInputElement>(null);
   const lastFrameInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleImageUpload = async (file: File, type: 'first' | 'last') => {
     const formData = new FormData();
@@ -86,6 +88,39 @@ export default function VideoGenerator() {
     setLastFrameUrl(null);
     if (lastFrameInputRef.current) {
       lastFrameInputRef.current.value = '';
+    }
+  };
+
+  const insertAtCursor = (text: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      setPrompt(prev => prev + (prev ? ' ' : '') + text);
+      return;
+    }
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const newValue = prompt.substring(0, start) + text + prompt.substring(end);
+    
+    setPrompt(newValue);
+    
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + text.length, start + text.length);
+    }, 0);
+  };
+
+  const insertFirstFrameReference = () => {
+    insertAtCursor('@首帧');
+    if (activeTab !== 'text') {
+      setActiveTab('text');
+    }
+  };
+
+  const insertLastFrameReference = () => {
+    insertAtCursor('@末帧');
+    if (activeTab !== 'text') {
+      setActiveTab('text');
     }
   };
 
@@ -161,17 +196,60 @@ export default function VideoGenerator() {
         <div className="max-w-4xl mx-auto">
           <Card className="p-6 bg-slate-800/50 backdrop-blur border-purple-500/20">
             <div className="space-y-6">
-              <Tabs defaultValue="text" className="w-full">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <TabsList className="w-full bg-slate-700/50">
                   <TabsTrigger value="text" className="flex-1">文本描述</TabsTrigger>
                   <TabsTrigger value="images" className="flex-1">参考图片</TabsTrigger>
                 </TabsList>
                 
+                {(firstFrameUrl || lastFrameUrl) && (
+                  <div className="mt-4 p-4 bg-slate-700/30 rounded-lg border border-slate-600/50">
+                    <div className="flex flex-wrap gap-2 items-center">
+                      <span className="text-slate-400 text-sm">快捷引用：</span>
+                      {firstFrameUrl && (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={insertFirstFrameReference}
+                          className="bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30"
+                          disabled={isGenerating}
+                        >
+                          @首帧
+                        </Button>
+                      )}
+                      {lastFrameUrl && (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={insertLastFrameReference}
+                          className="bg-pink-600/20 hover:bg-pink-600/30 text-pink-300 border border-pink-500/30"
+                          disabled={isGenerating}
+                        >
+                          @末帧
+                        </Button>
+                      )}
+                      <span className="text-slate-500 text-xs">
+                        点击快速插入到描述中
+                      </span>
+                    </div>
+                  </div>
+                )}
+                
                 <TabsContent value="text" className="mt-4">
                   <div>
-                    <Label className="text-white text-sm font-medium mb-2 block">视频描述</Label>
+                    <div className="flex justify-between items-center mb-2">
+                      <Label className="text-white text-sm font-medium">视频描述</Label>
+                      {(firstFrameUrl || lastFrameUrl) && (
+                        <span className="text-xs text-slate-500">
+                          提示：在下方参考图片标签页上传图片后，可使用 @首帧/@末帧 引用
+                        </span>
+                      )}
+                    </div>
                     <Textarea
-                      placeholder="描述你想要生成的视频内容... 例如：一个宁静的海边日落，海浪轻轻拍打着沙滩，海鸥在空中翱翔"
+                      ref={textareaRef}
+                      placeholder={`描述你想要生成的视频内容... ${(firstFrameUrl || lastFrameUrl) ? '\n提示：使用 @首帧 或 @末帧 来引用你上传的图片' : ''}\n例如：@首帧 镜头缓慢拉近，展现美丽的风景，然后平滑过渡到 @末帧`}
                       value={prompt}
                       onChange={(e) => setPrompt(e.target.value)}
                       className="min-h-32 bg-slate-700/50 border-slate-600 text-white placeholder:text-gray-500 resize-none"
@@ -183,7 +261,21 @@ export default function VideoGenerator() {
                 <TabsContent value="images" className="mt-4 space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-white text-sm font-medium">首帧图片</Label>
+                      <div className="flex items-center justify-between">
+                        <Label className="text-white text-sm font-medium">首帧图片</Label>
+                        {firstFrameUrl && (
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={insertFirstFrameReference}
+                            className="h-7 text-xs bg-purple-600/20 hover:bg-purple-600/30 text-purple-300"
+                            disabled={isGenerating}
+                          >
+                            @引用
+                          </Button>
+                        )}
+                      </div>
                       {firstFrameUrl ? (
                         <div className="relative">
                           <img
@@ -225,13 +317,27 @@ export default function VideoGenerator() {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label className="text-white text-sm font-medium">末帧图片（可选）</Label>
+                      <div className="flex items-center justify-between">
+                        <Label className="text-white text-sm font-medium">末帧图片（可选）</Label>
+                        {lastFrameUrl && (
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={insertLastFrameReference}
+                            className="h-7 text-xs bg-pink-600/20 hover:bg-pink-600/30 text-pink-300"
+                            disabled={isGenerating}
+                          >
+                            @引用
+                          </Button>
+                        )}
+                      </div>
                       {lastFrameUrl ? (
                         <div className="relative">
                           <img
                             src={lastFrameUrl}
                             alt="末帧"
-                            className="w-full h-40 object-cover rounded-lg border-2 border-purple-500/50"
+                            className="w-full h-40 object-cover rounded-lg border-2 border-pink-500/50"
                           />
                           <button
                             onClick={removeLastFrame}
@@ -244,7 +350,7 @@ export default function VideoGenerator() {
                       ) : (
                         <div
                           onClick={() => lastFrameInputRef.current?.click()}
-                          className="border-2 border-dashed border-slate-600 rounded-lg p-8 text-center cursor-pointer hover:border-purple-500/50 transition-colors"
+                          className="border-2 border-dashed border-slate-600 rounded-lg p-8 text-center cursor-pointer hover:border-pink-500/50 transition-colors"
                         >
                           <input
                             ref={lastFrameInputRef}
@@ -255,7 +361,7 @@ export default function VideoGenerator() {
                             disabled={isGenerating}
                           />
                           {isUploadingLast ? (
-                            <Loader2 className="w-8 h-8 mx-auto text-purple-400 animate-spin" />
+                            <Loader2 className="w-8 h-8 mx-auto text-pink-400 animate-spin" />
                           ) : (
                             <>
                               <Upload className="w-8 h-8 mx-auto text-slate-500 mb-2" />
@@ -266,19 +372,6 @@ export default function VideoGenerator() {
                       )}
                     </div>
                   </div>
-                  
-                  {(firstFrameUrl || lastFrameUrl) && (
-                    <div>
-                      <Label className="text-white text-sm font-medium mb-2 block">补充描述（可选）</Label>
-                      <Textarea
-                        placeholder="描述视频的场景、动作或转场效果..."
-                        value={prompt}
-                        onChange={(e) => setPrompt(e.target.value)}
-                        className="min-h-24 bg-slate-700/50 border-slate-600 text-white placeholder:text-gray-500 resize-none"
-                        disabled={isGenerating}
-                      />
-                    </div>
-                  )}
                 </TabsContent>
               </Tabs>
 
