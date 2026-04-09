@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
@@ -8,7 +8,8 @@ import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Sparkles, Video, Loader2, Download, Play } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Sparkles, Video, Loader2, Download, Play, Upload, X } from 'lucide-react';
 
 export default function VideoGenerator() {
   const [prompt, setPrompt] = useState('');
@@ -19,10 +20,78 @@ export default function VideoGenerator() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  
+  const [firstFrameUrl, setFirstFrameUrl] = useState<string | null>(null);
+  const [lastFrameUrl, setLastFrameUrl] = useState<string | null>(null);
+  const [isUploadingFirst, setIsUploadingFirst] = useState(false);
+  const [isUploadingLast, setIsUploadingLast] = useState(false);
+  
+  const firstFrameInputRef = useRef<HTMLInputElement>(null);
+  const lastFrameInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageUpload = async (file: File, type: 'first' | 'last') => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const response = await fetch('/api/upload-image', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || '上传图片失败');
+      }
+
+      if (type === 'first') {
+        setFirstFrameUrl(data.imageUrl);
+      } else {
+        setLastFrameUrl(data.imageUrl);
+      }
+    } catch {
+      setError('上传图片时发生错误');
+    }
+  };
+
+  const handleFirstFrameSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingFirst(true);
+    setError(null);
+    await handleImageUpload(file, 'first');
+    setIsUploadingFirst(false);
+  };
+
+  const handleLastFrameSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingLast(true);
+    setError(null);
+    await handleImageUpload(file, 'last');
+    setIsUploadingLast(false);
+  };
+
+  const removeFirstFrame = () => {
+    setFirstFrameUrl(null);
+    if (firstFrameInputRef.current) {
+      firstFrameInputRef.current.value = '';
+    }
+  };
+
+  const removeLastFrame = () => {
+    setLastFrameUrl(null);
+    if (lastFrameInputRef.current) {
+      lastFrameInputRef.current.value = '';
+    }
+  };
 
   const handleGenerate = async () => {
-    if (!prompt.trim()) {
-      setError('请输入视频描述');
+    if (!prompt.trim() && !firstFrameUrl) {
+      setError('请输入视频描述或上传首帧图片');
       return;
     }
 
@@ -42,6 +111,8 @@ export default function VideoGenerator() {
           ratio,
           resolution,
           generateAudio,
+          firstFrameUrl,
+          lastFrameUrl,
         }),
       });
 
@@ -90,16 +161,126 @@ export default function VideoGenerator() {
         <div className="max-w-4xl mx-auto">
           <Card className="p-6 bg-slate-800/50 backdrop-blur border-purple-500/20">
             <div className="space-y-6">
-              <div>
-                <Label className="text-white text-sm font-medium mb-2 block">视频描述</Label>
-                <Textarea
-                  placeholder="描述你想要生成的视频内容... 例如：一个宁静的海边日落，海浪轻轻拍打着沙滩，海鸥在空中翱翔"
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  className="min-h-32 bg-slate-700/50 border-slate-600 text-white placeholder:text-gray-500 resize-none"
-                  disabled={isGenerating}
-                />
-              </div>
+              <Tabs defaultValue="text" className="w-full">
+                <TabsList className="w-full bg-slate-700/50">
+                  <TabsTrigger value="text" className="flex-1">文本描述</TabsTrigger>
+                  <TabsTrigger value="images" className="flex-1">参考图片</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="text" className="mt-4">
+                  <div>
+                    <Label className="text-white text-sm font-medium mb-2 block">视频描述</Label>
+                    <Textarea
+                      placeholder="描述你想要生成的视频内容... 例如：一个宁静的海边日落，海浪轻轻拍打着沙滩，海鸥在空中翱翔"
+                      value={prompt}
+                      onChange={(e) => setPrompt(e.target.value)}
+                      className="min-h-32 bg-slate-700/50 border-slate-600 text-white placeholder:text-gray-500 resize-none"
+                      disabled={isGenerating}
+                    />
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="images" className="mt-4 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-white text-sm font-medium">首帧图片</Label>
+                      {firstFrameUrl ? (
+                        <div className="relative">
+                          <img
+                            src={firstFrameUrl}
+                            alt="首帧"
+                            className="w-full h-40 object-cover rounded-lg border-2 border-purple-500/50"
+                          />
+                          <button
+                            onClick={removeFirstFrame}
+                            className="absolute top-2 right-2 p-1 bg-red-500 rounded-full text-white hover:bg-red-600"
+                            disabled={isGenerating}
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div
+                          onClick={() => firstFrameInputRef.current?.click()}
+                          className="border-2 border-dashed border-slate-600 rounded-lg p-8 text-center cursor-pointer hover:border-purple-500/50 transition-colors"
+                        >
+                          <input
+                            ref={firstFrameInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleFirstFrameSelect}
+                            className="hidden"
+                            disabled={isGenerating}
+                          />
+                          {isUploadingFirst ? (
+                            <Loader2 className="w-8 h-8 mx-auto text-purple-400 animate-spin" />
+                          ) : (
+                            <>
+                              <Upload className="w-8 h-8 mx-auto text-slate-500 mb-2" />
+                              <p className="text-slate-500 text-sm">点击上传首帧图片</p>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label className="text-white text-sm font-medium">末帧图片（可选）</Label>
+                      {lastFrameUrl ? (
+                        <div className="relative">
+                          <img
+                            src={lastFrameUrl}
+                            alt="末帧"
+                            className="w-full h-40 object-cover rounded-lg border-2 border-purple-500/50"
+                          />
+                          <button
+                            onClick={removeLastFrame}
+                            className="absolute top-2 right-2 p-1 bg-red-500 rounded-full text-white hover:bg-red-600"
+                            disabled={isGenerating}
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div
+                          onClick={() => lastFrameInputRef.current?.click()}
+                          className="border-2 border-dashed border-slate-600 rounded-lg p-8 text-center cursor-pointer hover:border-purple-500/50 transition-colors"
+                        >
+                          <input
+                            ref={lastFrameInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleLastFrameSelect}
+                            className="hidden"
+                            disabled={isGenerating}
+                          />
+                          {isUploadingLast ? (
+                            <Loader2 className="w-8 h-8 mx-auto text-purple-400 animate-spin" />
+                          ) : (
+                            <>
+                              <Upload className="w-8 h-8 mx-auto text-slate-500 mb-2" />
+                              <p className="text-slate-500 text-sm">点击上传末帧图片</p>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {(firstFrameUrl || lastFrameUrl) && (
+                    <div>
+                      <Label className="text-white text-sm font-medium mb-2 block">补充描述（可选）</Label>
+                      <Textarea
+                        placeholder="描述视频的场景、动作或转场效果..."
+                        value={prompt}
+                        onChange={(e) => setPrompt(e.target.value)}
+                        className="min-h-24 bg-slate-700/50 border-slate-600 text-white placeholder:text-gray-500 resize-none"
+                        disabled={isGenerating}
+                      />
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
@@ -167,7 +348,7 @@ export default function VideoGenerator() {
 
               <Button
                 onClick={handleGenerate}
-                disabled={isGenerating || !prompt.trim()}
+                disabled={isGenerating || (!prompt.trim() && !firstFrameUrl)}
                 className="w-full py-6 text-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isGenerating ? (
