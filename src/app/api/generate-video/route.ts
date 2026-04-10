@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
       generateAudio = true,
       firstFrameUrl,
       lastFrameUrl,
-      model = 'doubao-seedance-2-0-pro-coze-premium'
+      model = 'doubao-seedance-1-5-pro-251215'
     } = await request.json();
     
     if (!prompt && !firstFrameUrl) {
