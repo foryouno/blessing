@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Sparkles, Video, Loader2, Download, Play, Upload, X, History, Trash2, Clock, Lightbulb, Copy } from 'lucide-react';
+import { Sparkles, Video, Loader2, Download, Play, Upload, X, History, Trash2, Clock, Lightbulb, Copy, Wand2, Palette, Zap, Film } from 'lucide-react';
 
 interface VideoHistoryItem {
   id: string;
@@ -38,6 +38,30 @@ export default function VideoGenerator() {
   const [error, setError] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<VideoHistoryItem[]>([]);
+  const [showTemplates, setShowTemplates] = useState(false);
+
+  const promptTemplates = [
+    {
+      title: '风格转换',
+      icon: <Palette className="w-4 h-4" />,
+      template: '@首帧 保持画面主体，将风格转换为动漫风格，色彩鲜艳，线条流畅'
+    },
+    {
+      title: '镜头运动',
+      icon: <Film className="w-4 h-4" />,
+      template: '@首帧 镜头从远景缓慢推近，聚焦于主体，然后平滑过渡到 @末帧'
+    },
+    {
+      title: '魔法效果',
+      icon: <Wand2 className="w-4 h-4" />,
+      template: '@首帧 画面中出现魔法粒子效果，物体缓缓漂浮，光影变化柔和'
+    },
+    {
+      title: '快速转场',
+      icon: <Zap className="w-4 h-4" />,
+      template: '@首帧 快速缩放模糊转场，无缝衔接 @末帧，节奏感强烈'
+    }
+  ];
   
   const [firstFrameUrl, setFirstFrameUrl] = useState<string | null>(null);
   const [lastFrameUrl, setLastFrameUrl] = useState<string | null>(null);
@@ -386,51 +410,58 @@ export default function VideoGenerator() {
                   <TabsTrigger value="images" className="flex-1">参考图片</TabsTrigger>
                 </TabsList>
                 
-                {(firstFrameUrl || lastFrameUrl) && (
-                  <div className="mt-4 p-4 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                    <div className="flex flex-wrap gap-2 items-center">
-                      <span className="text-slate-400 text-sm">快捷引用：</span>
-                      {firstFrameUrl && (
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          onClick={insertFirstFrameReference}
-                          className="bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30"
-                          disabled={isGenerating}
-                        >
-                          @首帧
-                        </Button>
-                      )}
-                      {lastFrameUrl && (
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          onClick={insertLastFrameReference}
-                          className="bg-pink-600/20 hover:bg-pink-600/30 text-pink-300 border border-pink-500/30"
-                          disabled={isGenerating}
-                        >
-                          @末帧
-                        </Button>
-                      )}
-                      <span className="text-slate-500 text-xs">
-                        点击快速插入到描述中
-                      </span>
-                    </div>
-                  </div>
-                )}
+
                 
                 <TabsContent value="text" className="mt-4">
                   <div>
                     <div className="flex justify-between items-center mb-2">
                       <Label className="text-white text-sm font-medium">视频描述</Label>
-                      {(firstFrameUrl || lastFrameUrl) && (
-                        <span className="text-xs text-slate-500">
-                          提示：在下方参考图片标签页上传图片后，可使用 @首帧/@末帧 引用
-                        </span>
-                      )}
+                      <div className="flex gap-2">
+                        {(firstFrameUrl || lastFrameUrl) && (
+                          <span className="text-xs text-slate-500">
+                            提示：在下方参考图片标签页上传图片后，可使用 @首帧/@末帧 引用
+                          </span>
+                        )}
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setShowTemplates(!showTemplates)}
+                          className="h-7 text-xs"
+                        >
+                          <Wand2 className="w-3 h-3 mr-1" />
+                          灵感模板
+                        </Button>
+                      </div>
                     </div>
+                    
+                    {showTemplates && (
+                      <div className="mb-4 p-4 bg-slate-700/50 rounded-lg border border-slate-600">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          {promptTemplates.map((template, index) => (
+                            <Button
+                              key={index}
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => {
+                                insertAtCursor(template.template);
+                                setShowTemplates(false);
+                              }}
+                              className="justify-start h-auto py-3 text-left bg-slate-600/50 hover:bg-slate-600 border border-slate-500"
+                              disabled={isGenerating}
+                            >
+                              <div className="flex items-start gap-2">
+                                <span className="text-purple-400 mt-0.5">{template.icon}</span>
+                                <div>
+                                  <p className="text-white font-medium text-sm">{template.title}</p>
+                                  <p className="text-slate-400 text-xs line-clamp-2">{template.template}</p>
+                                </div>
+                              </div>
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
                     <Textarea
                       ref={textareaRef}
                       placeholder={`描述你想要生成的视频内容... ${(firstFrameUrl || lastFrameUrl) ? '\n提示：使用 @首帧 或 @末帧 来引用你上传的图片' : ''}\n例如：@首帧 镜头缓慢拉近，展现美丽的风景，然后平滑过渡到 @末帧`}
@@ -439,6 +470,33 @@ export default function VideoGenerator() {
                       className="min-h-32 bg-slate-700/50 border-slate-600 text-white placeholder:text-gray-500 resize-none"
                       disabled={isGenerating}
                     />
+                    
+                    {(firstFrameUrl || lastFrameUrl) && (
+                      <div className="mt-2 flex gap-2">
+                        {firstFrameUrl && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={insertFirstFrameReference}
+                            className="bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30"
+                            disabled={isGenerating}
+                          >
+                            @首帧
+                          </Button>
+                        )}
+                        {lastFrameUrl && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={insertLastFrameReference}
+                            className="bg-pink-600/20 hover:bg-pink-600/30 text-pink-300 border border-pink-500/30"
+                            disabled={isGenerating}
+                          >
+                            @末帧
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </TabsContent>
                 
