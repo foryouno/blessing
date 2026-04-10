@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Sparkles, Video, Loader2, Download, Play, Upload, X, History, Trash2, Clock, Lightbulb, Copy, Wand2, Palette, Zap, Film } from 'lucide-react';
+import { Sparkles, Video, Loader2, Download, Play, Upload, X, History, Trash2, Clock, Lightbulb, Copy, Wand2, Palette, Zap, Film, Crown } from 'lucide-react';
 
 interface VideoHistoryItem {
   id: string;
@@ -32,7 +32,7 @@ export default function VideoGenerator() {
   const [ratio, setRatio] = useState('16:9');
   const [resolution, setResolution] = useState('720p');
   const [generateAudio, setGenerateAudio] = useState(true);
-  const [model, setModel] = useState('doubao-seedance-1-5-pro-251215');
+  const [model, setModel] = useState('doubao-seedance-2-0-pro-coze-premium');
   const [isGenerating, setIsGenerating] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -680,13 +680,33 @@ export default function VideoGenerator() {
                   <Label className="text-white text-sm font-medium mb-2 block">生成模型</Label>
                   <Select value={model} onValueChange={setModel} disabled={isGenerating}>
                     <SelectTrigger className="bg-slate-700/50 border-slate-600 text-white">
-                      <SelectValue />
+                      <SelectValue>
+                        {model === 'doubao-seedance-2-0-pro-coze-premium' ? (
+                          <div className="flex items-center gap-2">
+                            <Crown className="w-4 h-4 text-yellow-400" />
+                            <span>扣子个人高级会员 · Seedance 2.0</span>
+                          </div>
+                        ) : (
+                          <span>Doubao Seedance 1.5 Pro</span>
+                        )}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent className="bg-slate-800 border-slate-600">
+                      <SelectItem value="doubao-seedance-2-0-pro-coze-premium">
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-2">
+                            <Crown className="w-4 h-4 text-yellow-400" />
+                            <span className="font-medium text-yellow-400">扣子个人高级会员</span>
+                          </div>
+                          <span className="text-sm text-white">Seedance 2.0 👑</span>
+                          <span className="text-xs text-yellow-400/80">会员特权 · 更高质量 · 更快生成</span>
+                        </div>
+                      </SelectItem>
                       <SelectItem value="doubao-seedance-1-5-pro-251215">
                         <div className="flex flex-col">
-                          <span>Doubao Seedance 1.5 Pro ✨</span>
-                          <span className="text-xs text-slate-500">火山引擎 · 专业版，支持音频生成</span>
+                          <span className="font-medium">Doubao Seedance 1.5 Pro</span>
+                          <span className="text-sm text-slate-400">✨ 专业版</span>
+                          <span className="text-xs text-slate-500">火山引擎 · 支持音频生成</span>
                         </div>
                       </SelectItem>
                     </SelectContent>
