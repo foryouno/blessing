@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Sparkles, Video, Loader2, Download, Play, Upload, X, History, Trash2, Clock } from 'lucide-react';
+import { Sparkles, Video, Loader2, Download, Play, Upload, X, History, Trash2, Clock, Lightbulb, Copy } from 'lucide-react';
 
 interface VideoHistoryItem {
   id: string;
@@ -73,6 +73,22 @@ export default function VideoGenerator() {
       setHistory([]);
       localStorage.removeItem('videoHistory');
     }
+  };
+
+  const reuseFromHistory = (item: VideoHistoryItem) => {
+    if (item.firstFrameUrl) {
+      setFirstFrameUrl(item.firstFrameUrl);
+    }
+    if (item.lastFrameUrl) {
+      setLastFrameUrl(item.lastFrameUrl);
+    }
+    setPrompt(item.prompt);
+    setDuration(item.duration);
+    setRatio(item.ratio);
+    setResolution(item.resolution);
+    setGenerateAudio(item.generateAudio);
+    setModel(item.model);
+    setShowHistory(false);
   };
 
   const handleImageUpload = async (file: File, type: 'first' | 'last') => {
@@ -308,12 +324,24 @@ export default function VideoGenerator() {
                           <p className="text-white font-medium line-clamp-2">
                             {item.prompt || '无描述'}
                           </p>
-                          <button
-                            onClick={() => removeFromHistory(item.id)}
-                            className="flex-shrink-0 p-1 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => reuseFromHistory(item)}
+                              className="h-7 text-xs bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 flex items-center gap-1"
+                              disabled={isGenerating}
+                            >
+                              <Copy className="w-3 h-3" />
+                              复用
+                            </Button>
+                            <button
+                              onClick={() => removeFromHistory(item.id)}
+                              className="flex-shrink-0 p-1 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
                         <div className="mt-2 flex flex-wrap gap-2">
                           <span className="text-xs px-2 py-1 bg-purple-500/20 text-purple-300 rounded">
@@ -328,6 +356,11 @@ export default function VideoGenerator() {
                           {item.generateAudio && (
                             <span className="text-xs px-2 py-1 bg-yellow-500/20 text-yellow-300 rounded">
                               含音频
+                            </span>
+                          )}
+                          {(item.firstFrameUrl || item.lastFrameUrl) && (
+                            <span className="text-xs px-2 py-1 bg-pink-500/20 text-pink-300 rounded">
+                              含参考图
                             </span>
                           )}
                         </div>
@@ -410,6 +443,20 @@ export default function VideoGenerator() {
                 </TabsContent>
                 
                 <TabsContent value="images" className="mt-4 space-y-4">
+                  <Card className="p-4 bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-purple-500/30">
+                    <div className="flex items-start gap-3">
+                      <Lightbulb className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <h3 className="text-white font-medium mb-1">参考图使用技巧</h3>
+                        <ul className="text-sm text-slate-300 space-y-1">
+                          <li>• 首帧图片：视频开始的画面，AI会从这张图片开始生成</li>
+                          <li>• 末帧图片：视频结束的画面，AI会平滑过渡到这张图片</li>
+                          <li>• 可以在文本中使用 @首帧/@末帧 来强调参考图的重要性</li>
+                          <li>• 历史记录中的参数和图片可以一键复用</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </Card>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
