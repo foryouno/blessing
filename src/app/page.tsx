@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
@@ -9,7 +9,22 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Sparkles, Video, Loader2, Download, Play, Upload, X } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Sparkles, Video, Loader2, Download, Play, Upload, X, History, Trash2, Clock } from 'lucide-react';
+
+interface VideoHistoryItem {
+  id: string;
+  videoUrl: string;
+  prompt: string;
+  duration: number;
+  ratio: string;
+  resolution: string;
+  generateAudio: boolean;
+  model: string;
+  firstFrameUrl?: string;
+  lastFrameUrl?: string;
+  createdAt: string;
+}
 
 export default function VideoGenerator() {
   const [prompt, setPrompt] = useState('');
@@ -21,6 +36,8 @@ export default function VideoGenerator() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [history, setHistory] = useState<VideoHistoryItem[]>([]);
   
   const [firstFrameUrl, setFirstFrameUrl] = useState<string | null>(null);
   const [lastFrameUrl, setLastFrameUrl] = useState<string | null>(null);
@@ -31,6 +48,32 @@ export default function VideoGenerator() {
   const firstFrameInputRef = useRef<HTMLInputElement>(null);
   const lastFrameInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const savedHistory = localStorage.getItem('videoHistory');
+    if (savedHistory) {
+      setHistory(JSON.parse(savedHistory));
+    }
+  }, []);
+
+  const saveToHistory = (item: VideoHistoryItem) => {
+    const newHistory = [item, ...history].slice(0, 50);
+    setHistory(newHistory);
+    localStorage.setItem('videoHistory', JSON.stringify(newHistory));
+  };
+
+  const removeFromHistory = (id: string) => {
+    const newHistory = history.filter(item => item.id !== id);
+    setHistory(newHistory);
+    localStorage.setItem('videoHistory', JSON.stringify(newHistory));
+  };
+
+  const clearHistory = () => {
+    if (confirm('确定要清空所有历史记录吗？')) {
+      setHistory([]);
+      localStorage.removeItem('videoHistory');
+    }
+  };
 
   const handleImageUpload = async (file: File, type: 'first' | 'last') => {
     const formData = new FormData();
@@ -160,6 +203,20 @@ export default function VideoGenerator() {
       }
 
       setVideoUrl(data.videoUrl);
+      
+      saveToHistory({
+        id: Date.now().toString(),
+        videoUrl: data.videoUrl,
+        prompt,
+        duration,
+        ratio,
+        resolution,
+        generateAudio,
+        model,
+        firstFrameUrl: firstFrameUrl || undefined,
+        lastFrameUrl: lastFrameUrl || undefined,
+        createdAt: new Date().toISOString(),
+      });
     } catch {
       setError('生成视频时发生错误');
     } finally {
@@ -194,6 +251,98 @@ export default function VideoGenerator() {
           </div>
           <p className="text-gray-400 text-lg">基于火山引擎 · 输入你的创意描述，AI 为你生成精彩视频</p>
         </div>
+
+        <div className="max-w-4xl mx-auto mb-6">
+          <div className="flex justify-end">
+            <Button
+              variant="secondary"
+              onClick={() => setShowHistory(!showHistory)}
+              className="flex items-center gap-2"
+            >
+              <History className="w-4 h-4" />
+              {showHistory ? '隐藏历史' : '历史记录'}
+              {history.length > 0 && (
+                <span className="ml-1 px-2 py-0.5 bg-purple-600 rounded-full text-xs">
+                  {history.length}
+                </span>
+              )}
+            </Button>
+          </div>
+        </div>
+
+        {showHistory && history.length > 0 && (
+          <Card className="max-w-4xl mx-auto mb-8 p-6 bg-slate-800/50 backdrop-blur border-purple-500/20">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                <Clock className="w-5 h-5 text-purple-400" />
+                历史记录
+              </h2>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={clearHistory}
+                className="flex items-center gap-1"
+              >
+                <Trash2 className="w-4 h-4" />
+                清空
+              </Button>
+            </div>
+            <ScrollArea className="h-96 rounded-lg border border-slate-700">
+              <div className="p-4 space-y-4">
+                {history.map((item) => (
+                  <Card key={item.id} className="p-4 bg-slate-700/50 border-slate-600">
+                    <div className="flex gap-4">
+                      <div className="flex-shrink-0 w-48">
+                        <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+                          <video
+                            src={item.videoUrl}
+                            className="w-full h-full object-contain"
+                            controls
+                            playsInline
+                          />
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-white font-medium line-clamp-2">
+                            {item.prompt || '无描述'}
+                          </p>
+                          <button
+                            onClick={() => removeFromHistory(item.id)}
+                            className="flex-shrink-0 p-1 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <span className="text-xs px-2 py-1 bg-purple-500/20 text-purple-300 rounded">
+                            {item.duration}秒
+                          </span>
+                          <span className="text-xs px-2 py-1 bg-blue-500/20 text-blue-300 rounded">
+                            {item.ratio}
+                          </span>
+                          <span className="text-xs px-2 py-1 bg-green-500/20 text-green-300 rounded">
+                            {item.resolution}
+                          </span>
+                          {item.generateAudio && (
+                            <span className="text-xs px-2 py-1 bg-yellow-500/20 text-yellow-300 rounded">
+                              含音频
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-2 text-xs text-slate-500">
+                          {new Date(item.createdAt).toLocaleString('zh-CN')}
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+          </Card>
+        )}
 
         <div className="max-w-4xl mx-auto">
           <Card className="p-6 bg-slate-800/50 backdrop-blur border-purple-500/20">
