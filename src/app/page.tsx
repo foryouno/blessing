@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Sparkles, Video, Loader2, Download, Play, Upload, X, History, Trash2, Clock, Lightbulb, Copy, Wand2, Palette, Zap, Film } from 'lucide-react';
+import { Sparkles, Video, Loader2, Download, Play, Upload, X, History, Trash2, Clock, Lightbulb, Copy, Wand2, Palette, Zap, Film, User, Mic, Smile, Monitor } from 'lucide-react';
 
 interface VideoHistoryItem {
   id: string;
@@ -41,6 +41,26 @@ export default function VideoGenerator() {
   const [showTemplates, setShowTemplates] = useState(false);
 
   const promptTemplates = [
+    {
+      title: '数字人主播',
+      icon: <User className="w-4 h-4" />,
+      template: '一位专业的数字人主播，站在简洁的演播室背景前，微笑着面向镜头，手势自然，语速适中，光线柔和'
+    },
+    {
+      title: '数字人讲解',
+      icon: <Mic className="w-4 h-4" />,
+      template: '数字人在讲解知识，站在白板或屏幕前，配合手势动作，表情丰富，背景简洁专业'
+    },
+    {
+      title: '数字人问候',
+      icon: <Smile className="w-4 h-4" />,
+      template: '友好的数字人向镜头挥手问候，笑容亲切，眼神温暖，动作自然流畅'
+    },
+    {
+      title: '数字人播报',
+      icon: <Monitor className="w-4 h-4" />,
+      template: '数字人新闻主播，坐在专业的新闻主播台前，表情严肃认真，播报新闻内容，背景是新闻演播室'
+    },
     {
       title: '风格转换',
       icon: <Palette className="w-4 h-4" />,
@@ -408,6 +428,7 @@ export default function VideoGenerator() {
                 <TabsList className="w-full bg-slate-700/50">
                   <TabsTrigger value="text" className="flex-1">文本描述</TabsTrigger>
                   <TabsTrigger value="images" className="flex-1">参考图片</TabsTrigger>
+                  <TabsTrigger value="avatar" className="flex-1">数字人</TabsTrigger>
                 </TabsList>
                 
 
@@ -627,6 +648,72 @@ export default function VideoGenerator() {
                         </div>
                       )}
                     </div>
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="avatar" className="mt-4 space-y-4">
+                  <Card className="p-4 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border-blue-500/30">
+                    <div className="flex items-start gap-3">
+                      <User className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <h3 className="text-white font-medium mb-1">数字人视频生成</h3>
+                        <p className="text-sm text-slate-300">
+                          选择下方的数字人模板，快速生成专业的数字人视频内容。
+                          支持主播、讲解、问候、播报等多种场景。
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {promptTemplates.slice(0, 4).map((template, index) => (
+                      <Card 
+                        key={index}
+                        className="p-4 bg-slate-700/50 border-slate-600 cursor-pointer hover:border-blue-500/50 transition-colors"
+                        onClick={() => {
+                          insertAtCursor(template.template);
+                          if (activeTab !== 'text') {
+                            setActiveTab('text');
+                          }
+                        }}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="p-2 bg-blue-500/20 rounded-lg">
+                            {template.icon}
+                          </div>
+                          <div>
+                            <h4 className="text-white font-medium">{template.title}</h4>
+                            <p className="text-xs text-slate-400 mt-1 line-clamp-2">
+                              {template.template}
+                            </p>
+                          </div>
+                        </div>
+                        <Button 
+                          variant="secondary"
+                          size="sm"
+                          className="w-full mt-3 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            insertAtCursor(template.template);
+                            if (activeTab !== 'text') {
+                              setActiveTab('text');
+                            }
+                          }}
+                        >
+                          使用此模板
+                        </Button>
+                      </Card>
+                    ))}
+                  </div>
+                  
+                  <div className="p-4 bg-slate-700/30 rounded-lg border border-slate-600">
+                    <h4 className="text-white font-medium mb-2">💡 数字人使用技巧</h4>
+                    <ul className="text-sm text-slate-300 space-y-1">
+                      <li>• 选择合适的数字人模板，快速生成专业视频</li>
+                      <li>• 可以在模板基础上修改，添加个性化内容</li>
+                      <li>• 建议开启音频生成，让数字人说话</li>
+                      <li>• 16:9 横屏适合视频号，9:16 竖屏适合抖音快手</li>
+                    </ul>
                   </div>
                 </TabsContent>
               </Tabs>
