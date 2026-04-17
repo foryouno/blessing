@@ -670,9 +670,9 @@ export default function VideoGenerator() {
                     </div>
                   </Card>
                   
-                  <Card className="p-4 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-amber-500/30">
+                  <Card className="p-4 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border-cyan-500/30">
                     <div className="flex items-start gap-3">
-                      <FileText className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+                      <FileText className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
                       <div className="flex-1">
                         <h3 className="text-white font-medium mb-1">📝 数字人读稿</h3>
                         <p className="text-sm text-slate-300 mb-3">
@@ -696,7 +696,7 @@ export default function VideoGenerator() {
                                   insertAtCursor(readTemplate.template);
                                 }
                               }}
-                              className="bg-amber-600/20 hover:bg-amber-600/30 text-amber-300"
+                              className="bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300"
                               disabled={isGenerating}
                             >
                               <FileText className="w-4 h-4 mr-2" />
