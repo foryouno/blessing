@@ -94,6 +94,21 @@ export default function VideoGenerator() {
   const [isUploadingLast, setIsUploadingLast] = useState(false);
   const [activeTab, setActiveTab] = useState('text');
   const [autoDuration, setAutoDuration] = useState(true);
+  const [selectedVoice, setSelectedVoice] = useState('zh_female_xiaohe_uranus_bigtts');
+  
+  // 语音选项
+  const voiceOptions = [
+    { value: 'zh_female_xiaohe_uranus_bigtts', label: '小荷 - 女声（通用）' },
+    { value: 'zh_female_vv_uranus_bigtts', label: 'Vivi - 女声（中英双语）' },
+    { value: 'zh_male_m191_uranus_bigtts', label: '云舟 - 男声' },
+    { value: 'zh_male_taocheng_uranus_bigtts', label: '小天 - 男声' },
+    { value: 'zh_female_xueayi_saturn_bigtts', label: '雪怡 - 儿童有声书' },
+    { value: 'zh_male_dayi_saturn_bigtts', label: '大义 - 男声（视频配音）' },
+    { value: 'zh_female_mizai_saturn_bigtts', label: '米仔 - 女声（视频配音）' },
+    { value: 'zh_female_jitangnv_saturn_bigtts', label: '鸡汤女 - 励志女声' },
+    { value: 'zh_female_meilinvyou_saturn_bigtts', label: '魅力女友 - 女声' },
+    { value: 'zh_male_ruyayichen_saturn_bigtts', label: '儒雅逸晨 - 男声' }
+  ];
   
   const firstFrameInputRef = useRef<HTMLInputElement>(null);
   const lastFrameInputRef = useRef<HTMLInputElement>(null);
@@ -266,6 +281,31 @@ export default function VideoGenerator() {
     setVideoUrl(null);
 
     try {
+      let audioUrl: string | undefined;
+      
+      // 如果是数字人标签页且开启音频，先调用 TTS 生成语音
+      if (activeTab === 'avatar' && generateAudio && prompt.trim()) {
+        try {
+          const ttsResponse = await fetch('/api/tts', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              text: prompt,
+              speaker: selectedVoice
+            }),
+          });
+          
+          const ttsData = await ttsResponse.json();
+          if (ttsData.success && ttsData.audioUri) {
+            audioUrl = ttsData.audioUri;
+          }
+        } catch (ttsError) {
+          console.warn('TTS 生成失败，将使用默认音频生成:', ttsError);
+        }
+      }
+
       const response = await fetch('/api/generate-video', {
         method: 'POST',
         headers: {
@@ -280,6 +320,7 @@ export default function VideoGenerator() {
           firstFrameUrl,
           lastFrameUrl,
           model,
+          audioUrl // 传递 TTS 生成的音频 URL
         }),
       });
 
@@ -709,6 +750,31 @@ export default function VideoGenerator() {
                             className="min-h-24 bg-slate-700/50 border-slate-600 text-white placeholder:text-gray-500 resize-none"
                             disabled={isGenerating}
                           />
+                          {/* 语音选择 */}
+                          <div className="p-3 bg-slate-700/50 rounded-lg border border-slate-600">
+                            <div className="flex items-center justify-between mb-2">
+                              <Label className="text-white text-sm font-medium">
+                                🎤 选择语音
+                              </Label>
+                            </div>
+                            <Select value={selectedVoice} onValueChange={setSelectedVoice} disabled={isGenerating}>
+                              <SelectTrigger className="bg-slate-800 border-slate-600 text-white">
+                                <SelectValue placeholder="选择语音" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-slate-800 border-slate-600">
+                                {voiceOptions.map((voice) => (
+                                  <SelectItem 
+                                    key={voice.value} 
+                                    value={voice.value}
+                                    className="text-white hover:bg-slate-700"
+                                  >
+                                    {voice.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
                           {/* 自动时长设置 */}
                           <div className="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg border border-slate-600">
                             <div className="flex items-center gap-3">
