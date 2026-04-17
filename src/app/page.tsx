@@ -93,6 +93,7 @@ export default function VideoGenerator() {
   const [isUploadingFirst, setIsUploadingFirst] = useState(false);
   const [isUploadingLast, setIsUploadingLast] = useState(false);
   const [activeTab, setActiveTab] = useState('text');
+  const [autoDuration, setAutoDuration] = useState(true);
   
   const firstFrameInputRef = useRef<HTMLInputElement>(null);
   const lastFrameInputRef = useRef<HTMLInputElement>(null);
@@ -123,6 +124,27 @@ export default function VideoGenerator() {
       localStorage.removeItem('videoHistory');
     }
   };
+
+  // 计算读稿时长（中文：每分钟 160 字）
+  const calculateReadingDuration = (text: string): number => {
+    // 去除空白字符，只计算有效字符
+    const cleanText = text.replace(/\s/g, '');
+    const charCount = cleanText.length;
+    const wordsPerMinute = 160;
+    const durationMinutes = charCount / wordsPerMinute;
+    // 转换为秒，最小 5 秒，最大 60 秒（受模型限制）
+    let durationSeconds = Math.ceil(durationMinutes * 60);
+    durationSeconds = Math.max(5, Math.min(60, durationSeconds));
+    return durationSeconds;
+  };
+
+  // 当文稿内容变化时自动更新时长
+  useEffect(() => {
+    if (autoDuration && activeTab === 'avatar') {
+      const newDuration = calculateReadingDuration(prompt);
+      setDuration(newDuration);
+    }
+  }, [prompt, autoDuration, activeTab]);
 
   const reuseFromHistory = (item: VideoHistoryItem) => {
     if (item.firstFrameUrl) {
@@ -687,6 +709,32 @@ export default function VideoGenerator() {
                             className="min-h-24 bg-slate-700/50 border-slate-600 text-white placeholder:text-gray-500 resize-none"
                             disabled={isGenerating}
                           />
+                          {/* 自动时长设置 */}
+                          <div className="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg border border-slate-600">
+                            <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-2">
+                                <Switch
+                                  id="auto-duration"
+                                  checked={autoDuration}
+                                  onCheckedChange={setAutoDuration}
+                                  disabled={isGenerating}
+                                />
+                                <Label htmlFor="auto-duration" className="text-white text-sm">
+                                  自动计算读稿时长
+                                </Label>
+                              </div>
+                            </div>
+                            {autoDuration && (
+                              <div className="text-right">
+                                <p className="text-xs text-slate-400">
+                                  字符数: {prompt.replace(/\s/g, '').length} 字
+                                </p>
+                                <p className="text-cyan-400 font-medium">
+                                  预计时长: {duration} 秒
+                                </p>
+                              </div>
+                            )}
+                          </div>
                           <div className="flex gap-2">
                             <Button
                               variant="secondary"
@@ -772,17 +820,28 @@ export default function VideoGenerator() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div>
-                  <Label className="text-white text-sm font-medium mb-2 block">
-                    时长: {duration} 秒
-                  </Label>
+                  <div className="flex items-center justify-between mb-2">
+                    <Label className="text-white text-sm font-medium">
+                      时长: {duration} 秒
+                    </Label>
+                    {autoDuration && activeTab === 'avatar' && (
+                      <span className="text-xs text-cyan-400 bg-cyan-500/20 px-2 py-0.5 rounded">
+                        自动计算中
+                      </span>
+                    )}
+                  </div>
                   <Slider
                     value={[duration]}
-                    onValueChange={(value) => setDuration(value[0])}
-                    min={4}
-                    max={12}
+                    onValueChange={(value) => {
+                      if (!autoDuration || activeTab !== 'avatar') {
+                        setDuration(value[0]);
+                      }
+                    }}
+                    min={5}
+                    max={60}
                     step={1}
-                    disabled={isGenerating}
-                    className="cursor-pointer"
+                    disabled={isGenerating || (autoDuration && activeTab === 'avatar')}
+                    className={`${autoDuration && activeTab === 'avatar' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                   />
                 </div>
 
