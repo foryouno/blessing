@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Sparkles, Video, Loader2, Download, Play, Upload, X, History, Trash2, Clock, Lightbulb, Copy, Wand2, Palette, Zap, Film, User, Mic, Smile, Monitor } from 'lucide-react';
+import { Sparkles, Video, Loader2, Download, Play, Upload, X, History, Trash2, Clock, Lightbulb, Copy, Wand2, Palette, Zap, Film, User, Mic, Smile, Monitor, FileText } from 'lucide-react';
 
 interface VideoHistoryItem {
   id: string;
@@ -41,6 +41,11 @@ export default function VideoGenerator() {
   const [showTemplates, setShowTemplates] = useState(false);
 
   const promptTemplates = [
+    {
+      title: '数字人读稿',
+      icon: <FileText className="w-4 h-4" />,
+      template: '一位专业的数字人正在认真朗读稿件，表情自然，语速适中，眼神专注，吐字清晰，专业的播读风格'
+    },
     {
       title: '数字人主播',
       icon: <User className="w-4 h-4" />,
@@ -659,14 +664,60 @@ export default function VideoGenerator() {
                         <h3 className="text-white font-medium mb-1">数字人视频生成</h3>
                         <p className="text-sm text-slate-300">
                           选择下方的数字人模板，快速生成专业的数字人视频内容。
-                          支持主播、讲解、问候、播报等多种场景。
+                          支持主播、讲解、问候、播报、读稿等多种场景。
                         </p>
                       </div>
                     </div>
                   </Card>
                   
+                  <Card className="p-4 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-amber-500/30">
+                    <div className="flex items-start gap-3">
+                      <FileText className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <h3 className="text-white font-medium mb-1">📝 数字人读稿</h3>
+                        <p className="text-sm text-slate-300 mb-3">
+                          输入你要朗读的文稿内容，数字人会为你专业朗读。
+                          建议开启音频生成，效果更佳！
+                        </p>
+                        <div className="space-y-3">
+                          <Textarea
+                            placeholder="在这里输入你要朗读的文稿内容..."
+                            value={prompt}
+                            onChange={(e) => setPrompt(e.target.value)}
+                            className="min-h-24 bg-slate-700/50 border-slate-600 text-white placeholder:text-gray-500 resize-none"
+                            disabled={isGenerating}
+                          />
+                          <div className="flex gap-2">
+                            <Button
+                              variant="secondary"
+                              onClick={() => {
+                                const readTemplate = promptTemplates[0];
+                                if (readTemplate) {
+                                  insertAtCursor(readTemplate.template);
+                                }
+                              }}
+                              className="bg-amber-600/20 hover:bg-amber-600/30 text-amber-300"
+                              disabled={isGenerating}
+                            >
+                              <FileText className="w-4 h-4 mr-2" />
+                              添加读稿描述
+                            </Button>
+                            <Button
+                              variant="secondary"
+                              onClick={() => setGenerateAudio(true)}
+                              className={generateAudio ? "bg-green-600/20 text-green-300" : ""}
+                              disabled={isGenerating}
+                            >
+                              {generateAudio ? "✅ 音频已开启" : "🔊 开启音频"}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                  
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {promptTemplates.slice(0, 4).map((template, index) => (
+                    {promptTemplates.slice(0, 5).map((template, index) => (
                       <Card 
                         key={index}
                         className="p-4 bg-slate-700/50 border-slate-600 cursor-pointer hover:border-blue-500/50 transition-colors"
@@ -709,9 +760,10 @@ export default function VideoGenerator() {
                   <div className="p-4 bg-slate-700/30 rounded-lg border border-slate-600">
                     <h4 className="text-white font-medium mb-2">💡 数字人使用技巧</h4>
                     <ul className="text-sm text-slate-300 space-y-1">
+                      <li>• 使用数字人读稿功能，输入文稿快速生成朗读视频</li>
                       <li>• 选择合适的数字人模板，快速生成专业视频</li>
                       <li>• 可以在模板基础上修改，添加个性化内容</li>
-                      <li>• 建议开启音频生成，让数字人说话</li>
+                      <li>• 务必开启音频生成，让数字人说话</li>
                       <li>• 16:9 横屏适合视频号，9:16 竖屏适合抖音快手</li>
                     </ul>
                   </div>
