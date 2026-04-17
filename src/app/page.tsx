@@ -35,6 +35,7 @@ export default function VideoGenerator() {
   const [model, setModel] = useState('doubao-seedance-1-5-pro-251215');
   const [isGenerating, setIsGenerating] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<VideoHistoryItem[]>([]);
@@ -271,97 +272,131 @@ export default function VideoGenerator() {
   };
 
   const handleGenerate = async () => {
-    if (!prompt.trim() && !firstFrameUrl) {
+    if (!prompt.trim() && model !== 'doubao-seed-tts' && !firstFrameUrl) {
       setError('请输入视频描述或上传首帧图片');
+      return;
+    }
+    
+    if (!prompt.trim() && model === 'doubao-seed-tts') {
+      setError('请输入要合成的文本内容');
       return;
     }
 
     setIsGenerating(true);
     setError(null);
     setVideoUrl(null);
+    setAudioUrl(null);
 
     try {
-      let audioUrl: string | undefined;
-      
-      // 如果是数字人标签页且开启音频，先调用 TTS 生成语音
-      if (activeTab === 'avatar' && generateAudio && prompt.trim()) {
-        try {
-          const ttsResponse = await fetch('/api/tts', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              text: prompt,
-              speaker: selectedVoice
-            }),
-          });
-          
-          const ttsData = await ttsResponse.json();
-          if (ttsData.success && ttsData.audioUri) {
-            audioUrl = ttsData.audioUri;
-          }
-        } catch (ttsError) {
-          console.warn('TTS 生成失败，将使用默认音频生成:', ttsError);
+      // 如果选择的是 Doubao-Seed-TTS 模型，只生成音频
+      if (model === 'doubao-seed-tts') {
+        const ttsResponse = await fetch('/api/tts', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            text: prompt,
+            speaker: selectedVoice
+          }),
+        });
+        
+        const ttsData = await ttsResponse.json();
+        if (!ttsResponse.ok) {
+          throw new Error(ttsData.error || '音频生成失败');
         }
-      }
+        
+        if (ttsData.success && ttsData.audioUri) {
+          setAudioUrl(ttsData.audioUri);
+        }
+      } else {
+        // 否则生成视频
+        let customAudioUrl: string | undefined;
+        
+        // 如果是数字人标签页且开启音频，先调用 TTS 生成语音
+        if (activeTab === 'avatar' && generateAudio && prompt.trim()) {
+          try {
+            const ttsResponse = await fetch('/api/tts', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                text: prompt,
+                speaker: selectedVoice
+              }),
+            });
+            
+            const ttsData = await ttsResponse.json();
+            if (ttsData.success && ttsData.audioUri) {
+              customAudioUrl = ttsData.audioUri;
+            }
+          } catch (ttsError) {
+            console.warn('TTS 生成失败，将使用默认音频生成:', ttsError);
+          }
+        }
 
-      const response = await fetch('/api/generate-video', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+        const response = await fetch('/api/generate-video', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            prompt,
+            duration,
+            ratio,
+            resolution,
+            generateAudio,
+            firstFrameUrl,
+            lastFrameUrl,
+            model,
+            audioUrl: customAudioUrl
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || '生成视频失败');
+        }
+
+        setVideoUrl(data.videoUrl);
+        
+        saveToHistory({
+          id: Date.now().toString(),
+          videoUrl: data.videoUrl,
           prompt,
           duration,
           ratio,
           resolution,
           generateAudio,
-          firstFrameUrl,
-          lastFrameUrl,
           model,
-          audioUrl // 传递 TTS 生成的音频 URL
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || '生成视频失败');
+          firstFrameUrl: firstFrameUrl || undefined,
+          lastFrameUrl: lastFrameUrl || undefined,
+          createdAt: new Date().toISOString(),
+        });
       }
-
-      setVideoUrl(data.videoUrl);
-      
-      saveToHistory({
-        id: Date.now().toString(),
-        videoUrl: data.videoUrl,
-        prompt,
-        duration,
-        ratio,
-        resolution,
-        generateAudio,
-        model,
-        firstFrameUrl: firstFrameUrl || undefined,
-        lastFrameUrl: lastFrameUrl || undefined,
-        createdAt: new Date().toISOString(),
-      });
-    } catch {
-      setError('生成视频时发生错误');
+    } catch (err) {
+      setError(model === 'doubao-seed-tts' ? '音频生成时发生错误' : '生成视频时发生错误');
     } finally {
       setIsGenerating(false);
     }
   };
 
   const handleDownload = async () => {
-    if (!videoUrl) return;
+    if (!videoUrl && !audioUrl) return;
 
     try {
-      const response = await fetch(videoUrl);
+      const url = videoUrl || audioUrl;
+      const extension = videoUrl ? 'mp4' : 'mp3';
+      const prefix = videoUrl ? 'video' : 'audio';
+      
+      const response = await fetch(url!);
       const blob = await response.blob();
       const blobUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = blobUrl;
-      link.download = `generated-video-${Date.now()}.mp4`;
+      link.download = `generated-${prefix}-${Date.now()}.${extension}`;
       link.click();
       window.URL.revokeObjectURL(blobUrl);
     } catch {
@@ -884,61 +919,65 @@ export default function VideoGenerator() {
                 </TabsContent>
               </Tabs>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <Label className="text-white text-sm font-medium">
-                      时长: {duration} 秒
-                    </Label>
-                    {autoDuration && activeTab === 'avatar' && (
-                      <span className="text-xs text-cyan-400 bg-cyan-500/20 px-2 py-0.5 rounded">
-                        自动计算中
-                      </span>
-                    )}
-                  </div>
-                  <Slider
-                    value={[duration]}
-                    onValueChange={(value) => {
-                      if (!autoDuration || activeTab !== 'avatar') {
-                        setDuration(value[0]);
-                      }
-                    }}
-                    min={5}
-                    max={60}
-                    step={1}
-                    disabled={isGenerating || (autoDuration && activeTab === 'avatar')}
-                    className={`${autoDuration && activeTab === 'avatar' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                  />
-                </div>
+              <div className={`grid gap-6 ${model === 'doubao-seed-tts' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4'}`}>
+                {model !== 'doubao-seed-tts' && (
+                  <>
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <Label className="text-white text-sm font-medium">
+                          时长: {duration} 秒
+                        </Label>
+                        {autoDuration && activeTab === 'avatar' && (
+                          <span className="text-xs text-cyan-400 bg-cyan-500/20 px-2 py-0.5 rounded">
+                            自动计算中
+                          </span>
+                        )}
+                      </div>
+                      <Slider
+                        value={[duration]}
+                        onValueChange={(value) => {
+                          if (!autoDuration || activeTab !== 'avatar') {
+                            setDuration(value[0]);
+                          }
+                        }}
+                        min={5}
+                        max={60}
+                        step={1}
+                        disabled={isGenerating || (autoDuration && activeTab === 'avatar')}
+                        className={`${autoDuration && activeTab === 'avatar' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                      />
+                    </div>
 
-                <div>
-                  <Label className="text-white text-sm font-medium mb-2 block">宽高比</Label>
-                  <Select value={ratio} onValueChange={setRatio} disabled={isGenerating}>
-                    <SelectTrigger className="bg-slate-700/50 border-slate-600 text-white">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-slate-800 border-slate-600">
-                      <SelectItem value="16:9">16:9 (横屏)</SelectItem>
-                      <SelectItem value="9:16">9:16 (竖屏)</SelectItem>
-                      <SelectItem value="1:1">1:1 (方形)</SelectItem>
-                      <SelectItem value="4:3">4:3 (传统)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                    <div>
+                      <Label className="text-white text-sm font-medium mb-2 block">宽高比</Label>
+                      <Select value={ratio} onValueChange={setRatio} disabled={isGenerating}>
+                        <SelectTrigger className="bg-slate-700/50 border-slate-600 text-white">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-800 border-slate-600">
+                          <SelectItem value="16:9">16:9 (横屏)</SelectItem>
+                          <SelectItem value="9:16">9:16 (竖屏)</SelectItem>
+                          <SelectItem value="1:1">1:1 (方形)</SelectItem>
+                          <SelectItem value="4:3">4:3 (传统)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                <div>
-                  <Label className="text-white text-sm font-medium mb-2 block">分辨率</Label>
-                  <Select value={resolution} onValueChange={setResolution} disabled={isGenerating}>
-                    <SelectTrigger className="bg-slate-700/50 border-slate-600 text-white">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-slate-800 border-slate-600">
-                      <SelectItem value="480p">480p</SelectItem>
-                      <SelectItem value="720p">720p</SelectItem>
-                      <SelectItem value="1080p">1080p</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                    <div>
+                      <Label className="text-white text-sm font-medium mb-2 block">分辨率</Label>
+                      <Select value={resolution} onValueChange={setResolution} disabled={isGenerating}>
+                        <SelectTrigger className="bg-slate-700/50 border-slate-600 text-white">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-800 border-slate-600">
+                          <SelectItem value="480p">480p</SelectItem>
+                          <SelectItem value="720p">720p</SelectItem>
+                          <SelectItem value="1080p">1080p</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                )}
 
                 <div>
                   <Label className="text-white text-sm font-medium mb-2 block">生成模型</Label>
@@ -951,7 +990,14 @@ export default function VideoGenerator() {
                         <div className="flex flex-col">
                           <span className="font-medium">Doubao Seedance 1.5 Pro</span>
                           <span className="text-sm text-slate-400">✨ 专业版</span>
-                          <span className="text-xs text-slate-500">火山引擎 · 支持音频生成</span>
+                          <span className="text-xs text-slate-500">火山引擎 · 视频生成</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="doubao-seed-tts">
+                        <div className="flex flex-col">
+                          <span className="font-medium">Doubao Seed TTS</span>
+                          <span className="text-sm text-slate-400">🎤 语音合成</span>
+                          <span className="text-xs text-slate-500">豆包大模型 · 专业人声</span>
                         </div>
                       </SelectItem>
                     </SelectContent>
@@ -959,17 +1005,19 @@ export default function VideoGenerator() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
-                <Switch
-                  id="audio"
-                  checked={generateAudio}
-                  onCheckedChange={setGenerateAudio}
-                  disabled={isGenerating}
-                />
-                <Label htmlFor="audio" className="text-white cursor-pointer">
-                  生成音频（背景音乐和音效）
-                </Label>
-              </div>
+              {model !== 'doubao-seed-tts' && (
+                <div className="flex items-center gap-3">
+                  <Switch
+                    id="audio"
+                    checked={generateAudio}
+                    onCheckedChange={setGenerateAudio}
+                    disabled={isGenerating}
+                  />
+                  <Label htmlFor="audio" className="text-white cursor-pointer">
+                    生成音频（背景音乐和音效）
+                  </Label>
+                </div>
+              )}
 
               {error && (
                 <div className="p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-300">
@@ -979,23 +1027,67 @@ export default function VideoGenerator() {
 
               <Button
                 onClick={handleGenerate}
-                disabled={isGenerating || (!prompt.trim() && !firstFrameUrl)}
-                className="w-full py-6 text-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isGenerating || (model !== 'doubao-seed-tts' && !prompt.trim() && !firstFrameUrl) || (model === 'doubao-seed-tts' && !prompt.trim())}
+                className={`w-full py-6 text-lg font-semibold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
+                  model === 'doubao-seed-tts'
+                    ? 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700'
+                    : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700'
+                } text-white`}
               >
                 {isGenerating ? (
                   <span className="flex items-center gap-2">
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    正在生成视频，请稍候...
+                    {model === 'doubao-seed-tts' ? '正在生成语音，请稍候...' : '正在生成视频，请稍候...'}
                   </span>
                 ) : (
                   <span className="flex items-center gap-2">
-                    <Sparkles className="w-5 h-5" />
-                    生成视频
+                    {model === 'doubao-seed-tts' ? (
+                      <>
+                        <Mic className="w-5 h-5" />
+                        生成语音
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-5 h-5" />
+                        生成视频
+                      </>
+                    )}
                   </span>
                 )}
               </Button>
             </div>
           </Card>
+
+          {audioUrl && (
+            <Card className="mt-8 p-6 bg-slate-800/50 backdrop-blur border-cyan-500/20">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                    <Mic className="w-5 h-5 text-cyan-400" />
+                    生成的语音
+                  </h2>
+                  <Button
+                    onClick={handleDownload}
+                    variant="secondary"
+                    className="bg-slate-700 hover:bg-slate-600 text-white"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    下载音频
+                  </Button>
+                </div>
+                <div className="p-4 bg-slate-700/50 rounded-lg">
+                  <audio
+                    src={audioUrl}
+                    controls
+                    className="w-full"
+                  />
+                </div>
+                <p className="text-sm text-slate-400">
+                  ✅ 使用 {voiceOptions.find(v => v.value === selectedVoice)?.label || selectedVoice} 语音合成
+                </p>
+              </div>
+            </Card>
+          )}
 
           {videoUrl && (
             <Card className="mt-8 p-6 bg-slate-800/50 backdrop-blur border-purple-500/20">
