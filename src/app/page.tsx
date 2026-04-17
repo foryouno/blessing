@@ -100,6 +100,8 @@ export default function VideoGenerator() {
   const [avatarImageUrl, setAvatarImageUrl] = useState<string | null>(null);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [avatarPrompt, setAvatarPrompt] = useState('');
+  const [avatarVideoUrl, setAvatarVideoUrl] = useState<string | null>(null);
+  const [avatarStep, setAvatarStep] = useState<'idle' | 'generating-audio' | 'generating-video' | 'completed'>('idle');
   
   // 语音选项
   const voiceOptions = [
@@ -327,8 +329,13 @@ export default function VideoGenerator() {
     setIsGenerating(true);
     setError(null);
     setAudioUrl(null);
+    setAvatarVideoUrl(null);
+    setAvatarStep('generating-audio');
 
     try {
+      // 第一步：生成 TTS 语音
+      let generatedAudioUrl: string | undefined;
+      
       const ttsResponse = await fetch('/api/tts', {
         method: 'POST',
         headers: {
@@ -346,8 +353,52 @@ export default function VideoGenerator() {
       }
       
       if (ttsData.success && ttsData.audioUri) {
+        generatedAudioUrl = ttsData.audioUri;
         setAudioUrl(ttsData.audioUri);
       }
+
+      // 第二步：如果有头像图片，生成数字人视频
+      if (avatarImageUrl) {
+        setAvatarStep('generating-video');
+        
+        // 计算视频时长
+        const cleanText = avatarPrompt.replace(/\s/g, '');
+        const charCount = cleanText.length;
+        const wordsPerMinute = 160;
+        const durationMinutes = charCount / wordsPerMinute;
+        let videoDuration = Math.ceil(durationMinutes * 60);
+        videoDuration = Math.max(5, Math.min(60, videoDuration));
+
+        const videoResponse = await fetch('/api/generate-video', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            prompt: `一位专业的数字人正在认真朗读，表情自然，语速适中，眼神专注，专业的播读风格。${avatarPrompt}`,
+            duration: videoDuration,
+            ratio: '16:9',
+            resolution: '720p',
+            generateAudio: false,
+            firstFrameUrl: avatarImageUrl,
+            lastFrameUrl: null,
+            model: 'doubao-seedance-1-5-pro-251215',
+            audioUrl: generatedAudioUrl
+          }),
+        });
+
+        const videoData = await videoResponse.json();
+        if (!videoResponse.ok) {
+          throw new Error(videoData.error || '视频生成失败');
+        }
+
+        if (videoData.videoUrl) {
+          setAvatarVideoUrl(videoData.videoUrl);
+        }
+      }
+
+      setAvatarStep('completed');
+      
     } catch (err) {
       setError('口播生成时发生错误');
     } finally {
@@ -534,12 +585,12 @@ export default function VideoGenerator() {
   };
 
   const handleDownload = async () => {
-    if (!videoUrl && !audioUrl) return;
+    if (!videoUrl && !audioUrl && !avatarVideoUrl) return;
 
     try {
-      const url = videoUrl || audioUrl;
-      const extension = videoUrl ? 'mp4' : 'mp3';
-      const prefix = videoUrl ? 'video' : 'audio';
+      const url = videoUrl || avatarVideoUrl || audioUrl;
+      const extension = (videoUrl || avatarVideoUrl) ? 'mp4' : 'mp3';
+      const prefix = (videoUrl || avatarVideoUrl) ? 'video' : 'audio';
       
       const response = await fetch(url!);
       const blob = await response.blob();
@@ -1201,6 +1252,52 @@ export default function VideoGenerator() {
                     </div>
                   </Card>
 
+                  {/* 生成进度显示 */}
+                  {isGenerating && (
+                    <Card className="p-4 bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-500/30">
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${avatarStep === 'generating-audio' || avatarStep === 'generating-video' || avatarStep === 'completed' ? 'bg-green-500' : 'bg-slate-600'}`}>
+                            {avatarStep === 'completed' ? '✓' : (avatarStep === 'generating-audio' || avatarStep === 'generating-video' ? <Loader2 className="w-4 h-4 animate-spin" /> : '1')}
+                          </div>
+                          <div>
+                            <p className={`text-sm font-medium ${avatarStep === 'generating-audio' || avatarStep === 'generating-video' || avatarStep === 'completed' ? 'text-green-400' : 'text-slate-400'}`}>
+                              生成语音
+                            </p>
+                            {avatarStep === 'generating-audio' && (
+                              <p className="text-xs text-green-300">正在使用 {voiceOptions.find(v => v.value === selectedVoice)?.label} 合成语音...</p>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {avatarImageUrl && (
+                          <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${avatarStep === 'generating-video' || avatarStep === 'completed' ? 'bg-green-500' : 'bg-slate-600'}`}>
+                              {avatarStep === 'completed' ? '✓' : (avatarStep === 'generating-video' ? <Loader2 className="w-4 h-4 animate-spin" /> : '2')}
+                            </div>
+                            <div>
+                              <p className={`text-sm font-medium ${avatarStep === 'generating-video' || avatarStep === 'completed' ? 'text-green-400' : 'text-slate-400'}`}>
+                                生成视频
+                              </p>
+                              {avatarStep === 'generating-video' && (
+                                <p className="text-xs text-green-300">正在使用头像生成数字人视频...</p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${avatarStep === 'completed' ? 'bg-green-500' : 'bg-slate-600'}`}>
+                            {avatarStep === 'completed' ? '✓' : '3'}
+                          </div>
+                          <p className={`text-sm font-medium ${avatarStep === 'completed' ? 'text-green-400' : 'text-slate-400'}`}>
+                            完成
+                          </p>
+                        </div>
+                      </div>
+                    </Card>
+                  )}
+
                   {/* 生成按钮 */}
                   <Button
                     onClick={handleAvatarGenerate}
@@ -1210,12 +1307,12 @@ export default function VideoGenerator() {
                     {isGenerating ? (
                       <span className="flex items-center gap-2">
                         <Loader2 className="w-5 h-5 animate-spin" />
-                        正在生成口播语音，请稍候...
+                        {avatarStep === 'generating-audio' ? '正在生成语音...' : '正在生成视频...'}
                       </span>
                     ) : (
                       <span className="flex items-center gap-2">
-                        <Mic className="w-5 h-5" />
-                        生成口播语音
+                        <Film className="w-5 h-5" />
+                        {avatarImageUrl ? '生成数字人口播' : '生成口播语音'}
                       </span>
                     )}
                   </Button>
@@ -1361,38 +1458,117 @@ export default function VideoGenerator() {
             </div>
           </Card>
 
-          {audioUrl && (
+          {(audioUrl || avatarVideoUrl) && (
             <Card className="mt-8 p-6 bg-slate-800/50 backdrop-blur border-green-500/20">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-                    <Mic className="w-5 h-5 text-green-400" />
-                    {activeTab === 'avatar-voice' ? '🎬 图片口播生成成功' : (mergeVoiceAndVideo ? '步骤 1/2 - 生成的语音' : '生成的语音')}
+                    {avatarVideoUrl ? (
+                      <>
+                        <Film className="w-5 h-5 text-green-400" />
+                        🎬 数字人口播生成成功
+                      </>
+                    ) : (
+                      <>
+                        <Mic className="w-5 h-5 text-green-400" />
+                        {activeTab === 'avatar-voice' ? '🎬 图片口播生成成功' : (mergeVoiceAndVideo ? '步骤 1/2 - 生成的语音' : '生成的语音')}
+                      </>
+                    )}
                   </h2>
-                  <Button
-                    onClick={handleDownload}
-                    variant="secondary"
-                    className="bg-slate-700 hover:bg-slate-600 text-white"
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    下载音频
-                  </Button>
+                  <div className="flex gap-2">
+                    {avatarVideoUrl && (
+                      <Button
+                        onClick={handleDownload}
+                        variant="secondary"
+                        className="bg-slate-700 hover:bg-slate-600 text-white"
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        下载视频
+                      </Button>
+                    )}
+                    {audioUrl && (
+                      <Button
+                        onClick={handleDownload}
+                        variant="secondary"
+                        className="bg-slate-700 hover:bg-slate-600 text-white"
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        下载音频
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 
-                {activeTab === 'avatar-voice' && avatarImageUrl && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <h3 className="text-white font-medium">📷 你的头像</h3>
-                      <div className="relative aspect-square bg-black rounded-lg overflow-hidden">
-                        <img
-                          src={avatarImageUrl}
-                          alt="头像"
-                          className="w-full h-full object-contain"
-                        />
-                      </div>
+                {/* 有视频时显示视频播放器 */}
+                {avatarVideoUrl && (
+                  <div className="space-y-4">
+                    <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+                      <video
+                        src={avatarVideoUrl}
+                        controls
+                        className="w-full h-full object-contain"
+                        playsInline
+                      />
                     </div>
-                    <div className="space-y-2">
-                      <h3 className="text-white font-medium">🎤 口播语音</h3>
+                    
+                    {audioUrl && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Card className="p-4 bg-slate-700/50 border-slate-600">
+                          <h4 className="text-white font-medium mb-2">🎤 口播语音</h4>
+                          <div className="p-3 bg-slate-800/50 rounded-lg">
+                            <audio
+                              src={audioUrl}
+                              controls
+                              className="w-full"
+                            />
+                          </div>
+                        </Card>
+                        
+                        <div className="p-4 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-lg border border-green-500/30">
+                          <h4 className="text-white font-medium mb-2">✅ 生成完成！</h4>
+                          <p className="text-sm text-green-200">
+                            数字人视频已生成！你可以：
+                          </p>
+                          <ul className="text-sm text-green-200 mt-2 space-y-1 list-disc list-inside">
+                            <li>直接观看生成的数字人视频</li>
+                            <li>下载口播语音用于其他用途</li>
+                            <li>使用视频编辑软件进一步编辑</li>
+                          </ul>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* 只有音频没有视频时的显示 */}
+                {!avatarVideoUrl && audioUrl && (
+                  <>
+                    {activeTab === 'avatar-voice' && avatarImageUrl && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <h3 className="text-white font-medium">📷 你的头像</h3>
+                          <div className="relative aspect-square bg-black rounded-lg overflow-hidden">
+                            <img
+                              src={avatarImageUrl}
+                              alt="头像"
+                              className="w-full h-full object-contain"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <h3 className="text-white font-medium">🎤 口播语音</h3>
+                          <div className="p-4 bg-slate-700/50 rounded-lg">
+                            <audio
+                              src={audioUrl}
+                              controls
+                              className="w-full"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {activeTab !== 'avatar-voice' && (
                       <div className="p-4 bg-slate-700/50 rounded-lg">
                         <audio
                           src={audioUrl}
@@ -1400,35 +1576,25 @@ export default function VideoGenerator() {
                           className="w-full"
                         />
                       </div>
-                    </div>
-                  </div>
-                )}
-                
-                {activeTab !== 'avatar-voice' && (
-                  <div className="p-4 bg-slate-700/50 rounded-lg">
-                    <audio
-                      src={audioUrl}
-                      controls
-                      className="w-full"
-                    />
-                  </div>
-                )}
-                
-                <p className="text-sm text-slate-400">
-                  ✅ 使用 {voiceOptions.find(v => v.value === selectedVoice)?.label || selectedVoice} 语音合成
-                </p>
-                
-                {activeTab === 'avatar-voice' && (
-                  <div className="p-4 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-lg border border-green-500/30">
-                    <h3 className="text-white font-medium mb-2">💡 使用建议</h3>
-                    <ol className="text-sm text-green-200 space-y-1 list-decimal list-inside">
-                      <li>下载上方的音频文件</li>
-                      <li>使用视频编辑软件（剪映、Adobe Premiere等）</li>
-                      <li>将图片和音频放入时间轴</li>
-                      <li>添加简单的动画效果（图片轻微缩放、淡入淡出等）</li>
-                      <li>导出视频就完成了！</li>
-                    </ol>
-                  </div>
+                    )}
+                    
+                    <p className="text-sm text-slate-400">
+                      ✅ 使用 {voiceOptions.find(v => v.value === selectedVoice)?.label || selectedVoice} 语音合成
+                    </p>
+                    
+                    {activeTab === 'avatar-voice' && !avatarVideoUrl && (
+                      <div className="p-4 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-lg border border-green-500/30">
+                        <h3 className="text-white font-medium mb-2">💡 使用建议</h3>
+                        <ol className="text-sm text-green-200 space-y-1 list-decimal list-inside">
+                          <li>下载上方的音频文件</li>
+                          <li>使用视频编辑软件（剪映、Adobe Premiere等）</li>
+                          <li>将图片和音频放入时间轴</li>
+                          <li>添加简单的动画效果（图片轻微缩放、淡入淡出等）</li>
+                          <li>导出视频就完成了！</li>
+                        </ol>
+                      </div>
+                    )}
+                  </>
                 )}
                 
                 {mergeVoiceAndVideo && activeTab !== 'avatar-voice' && (
