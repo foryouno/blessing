@@ -97,6 +97,9 @@ export default function VideoGenerator() {
   const [activeTab, setActiveTab] = useState('text');
   const [autoDuration, setAutoDuration] = useState(true);
   const [selectedVoice, setSelectedVoice] = useState('zh_female_xiaohe_uranus_bigtts');
+  const [avatarImageUrl, setAvatarImageUrl] = useState<string | null>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [avatarPrompt, setAvatarPrompt] = useState('');
   
   // 语音选项
   const voiceOptions = [
@@ -269,6 +272,86 @@ export default function VideoGenerator() {
     insertAtCursor('@末帧');
     if (activeTab !== 'text') {
       setActiveTab('text');
+    }
+  };
+
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAvatarSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingAvatar(true);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/upload-image', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || '图片上传失败');
+      }
+
+      setAvatarImageUrl(data.imageUrl);
+    } catch (err) {
+      setError('头像图片上传失败');
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
+  const removeAvatar = () => {
+    setAvatarImageUrl(null);
+    if (avatarInputRef.current) {
+      avatarInputRef.current.value = '';
+    }
+  };
+
+  const handleAvatarGenerate = async () => {
+    if (!avatarPrompt.trim() && !avatarImageUrl) {
+      setError('请输入口播内容或上传头像图片');
+      return;
+    }
+    
+    if (!avatarPrompt.trim()) {
+      setError('请输入要口播的内容');
+      return;
+    }
+
+    setIsGenerating(true);
+    setError(null);
+    setAudioUrl(null);
+
+    try {
+      const ttsResponse = await fetch('/api/tts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: avatarPrompt,
+          speaker: selectedVoice
+        }),
+      });
+      
+      const ttsData = await ttsResponse.json();
+      if (!ttsResponse.ok) {
+        throw new Error(ttsData.error || '音频生成失败');
+      }
+      
+      if (ttsData.success && ttsData.audioUri) {
+        setAudioUrl(ttsData.audioUri);
+      }
+    } catch (err) {
+      setError('口播生成时发生错误');
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -599,6 +682,7 @@ export default function VideoGenerator() {
                   <TabsTrigger value="text" className="flex-1">文本描述</TabsTrigger>
                   <TabsTrigger value="images" className="flex-1">参考图片</TabsTrigger>
                   <TabsTrigger value="avatar" className="flex-1">数字人</TabsTrigger>
+                  <TabsTrigger value="avatar-voice" className="flex-1">图片口播</TabsTrigger>
                 </TabsList>
                 
 
@@ -1006,6 +1090,136 @@ export default function VideoGenerator() {
                     </ul>
                   </div>
                 </TabsContent>
+                
+                <TabsContent value="avatar-voice" className="mt-4 space-y-4">
+                  <Card className="p-4 bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-500/30">
+                    <div className="flex items-start gap-3">
+                      <User className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <h3 className="text-white font-medium mb-1">🎬 图片口播生成</h3>
+                        <p className="text-sm text-slate-300">
+                          上传一张人物头像或图片，输入口播文案，生成专业的语音播报。
+                          适合制作知识分享、产品介绍、新闻播报等内容！
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* 头像图片上传 */}
+                    <Card className="p-4 bg-slate-700/50 border-slate-600">
+                      <h4 className="text-white font-medium mb-3">📷 头像/图片</h4>
+                      {avatarImageUrl ? (
+                        <div className="space-y-3">
+                          <div className="relative">
+                            <img
+                              src={avatarImageUrl}
+                              alt="头像"
+                              className="w-full aspect-square object-cover rounded-lg border-2 border-green-500/50"
+                            />
+                            <button
+                              onClick={removeAvatar}
+                              className="absolute top-2 right-2 p-1 bg-red-500 rounded-full text-white hover:bg-red-600"
+                              disabled={isGenerating}
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                          <p className="text-xs text-green-400">✅ 图片已上传</p>
+                        </div>
+                      ) : (
+                        <div
+                          onClick={() => avatarInputRef.current?.click()}
+                          className="border-2 border-dashed border-slate-600 rounded-lg p-8 text-center cursor-pointer hover:border-green-500/50 transition-colors"
+                        >
+                          <input
+                            ref={avatarInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleAvatarSelect}
+                            className="hidden"
+                            disabled={isGenerating}
+                          />
+                          {isUploadingAvatar ? (
+                            <Loader2 className="w-10 h-10 mx-auto text-green-400 animate-spin" />
+                          ) : (
+                            <>
+                              <Upload className="w-10 h-10 mx-auto text-slate-500 mb-3" />
+                              <p className="text-slate-500 text-sm">点击上传头像图片</p>
+                              <p className="text-xs text-slate-600 mt-1">支持 JPG、PNG 等格式</p>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </Card>
+
+                    {/* 语音选择 */}
+                    <Card className="p-4 bg-slate-700/50 border-slate-600">
+                      <h4 className="text-white font-medium mb-3">🎤 选择语音</h4>
+                      <Select value={selectedVoice} onValueChange={setSelectedVoice} disabled={isGenerating}>
+                        <SelectTrigger className="bg-slate-800 border-slate-600 text-white">
+                          <SelectValue placeholder="选择语音" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-800 border-slate-600">
+                          {voiceOptions.map((voice) => (
+                            <SelectItem 
+                              key={voice.value} 
+                              value={voice.value}
+                              className="text-white hover:bg-slate-700"
+                            >
+                              {voice.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      
+                      <div className="mt-4 p-3 bg-green-500/10 rounded-lg border border-green-500/30">
+                        <p className="text-xs text-green-300">
+                          💡 建议根据口播内容选择合适的语音：<br/>
+                          • 知识分享：儒雅男声或知性女声<br/>
+                          • 产品介绍：活力女声或稳重男声<br/>
+                          • 新闻播报：专业主播音色
+                        </p>
+                      </div>
+                    </Card>
+                  </div>
+
+                  {/* 口播文案 */}
+                  <Card className="p-4 bg-slate-700/50 border-slate-600">
+                    <h4 className="text-white font-medium mb-3">📝 口播文案</h4>
+                    <Textarea
+                      placeholder="在这里输入你要口播的内容...&#10;&#10;示例：&#10;大家好，欢迎来到今天的节目！今天我们来聊一聊人工智能的发展历程..."
+                      value={avatarPrompt}
+                      onChange={(e) => setAvatarPrompt(e.target.value)}
+                      className="min-h-32 bg-slate-800/50 border-slate-600 text-white placeholder:text-gray-500 resize-none"
+                      disabled={isGenerating}
+                    />
+                    <div className="flex justify-between items-center mt-2">
+                      <p className="text-xs text-slate-500">
+                        字符数: {avatarPrompt.replace(/\s/g, '').length} 字
+                      </p>
+                    </div>
+                  </Card>
+
+                  {/* 生成按钮 */}
+                  <Button
+                    onClick={handleAvatarGenerate}
+                    disabled={isGenerating || !avatarPrompt.trim()}
+                    className="w-full py-6 text-lg bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isGenerating ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        正在生成口播语音，请稍候...
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-2">
+                        <Mic className="w-5 h-5" />
+                        生成口播语音
+                      </span>
+                    )}
+                  </Button>
+                </TabsContent>
               </Tabs>
 
               <div className={`grid gap-6 ${model === 'doubao-seed-tts' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4'}`}>
@@ -1148,12 +1362,12 @@ export default function VideoGenerator() {
           </Card>
 
           {audioUrl && (
-            <Card className="mt-8 p-6 bg-slate-800/50 backdrop-blur border-cyan-500/20">
+            <Card className="mt-8 p-6 bg-slate-800/50 backdrop-blur border-green-500/20">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-                    <Mic className="w-5 h-5 text-cyan-400" />
-                    {mergeVoiceAndVideo ? '步骤 1/2 - 生成的语音' : '生成的语音'}
+                    <Mic className="w-5 h-5 text-green-400" />
+                    {activeTab === 'avatar-voice' ? '🎬 图片口播生成成功' : (mergeVoiceAndVideo ? '步骤 1/2 - 生成的语音' : '生成的语音')}
                   </h2>
                   <Button
                     onClick={handleDownload}
@@ -1164,17 +1378,60 @@ export default function VideoGenerator() {
                     下载音频
                   </Button>
                 </div>
-                <div className="p-4 bg-slate-700/50 rounded-lg">
-                  <audio
-                    src={audioUrl}
-                    controls
-                    className="w-full"
-                  />
-                </div>
+                
+                {activeTab === 'avatar-voice' && avatarImageUrl && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <h3 className="text-white font-medium">📷 你的头像</h3>
+                      <div className="relative aspect-square bg-black rounded-lg overflow-hidden">
+                        <img
+                          src={avatarImageUrl}
+                          alt="头像"
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="text-white font-medium">🎤 口播语音</h3>
+                      <div className="p-4 bg-slate-700/50 rounded-lg">
+                        <audio
+                          src={audioUrl}
+                          controls
+                          className="w-full"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {activeTab !== 'avatar-voice' && (
+                  <div className="p-4 bg-slate-700/50 rounded-lg">
+                    <audio
+                      src={audioUrl}
+                      controls
+                      className="w-full"
+                    />
+                  </div>
+                )}
+                
                 <p className="text-sm text-slate-400">
                   ✅ 使用 {voiceOptions.find(v => v.value === selectedVoice)?.label || selectedVoice} 语音合成
                 </p>
-                {mergeVoiceAndVideo && (
+                
+                {activeTab === 'avatar-voice' && (
+                  <div className="p-4 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-lg border border-green-500/30">
+                    <h3 className="text-white font-medium mb-2">💡 使用建议</h3>
+                    <ol className="text-sm text-green-200 space-y-1 list-decimal list-inside">
+                      <li>下载上方的音频文件</li>
+                      <li>使用视频编辑软件（剪映、Adobe Premiere等）</li>
+                      <li>将图片和音频放入时间轴</li>
+                      <li>添加简单的动画效果（图片轻微缩放、淡入淡出等）</li>
+                      <li>导出视频就完成了！</li>
+                    </ol>
+                  </div>
+                )}
+                
+                {mergeVoiceAndVideo && activeTab !== 'avatar-voice' && (
                   <p className="text-sm text-purple-300 bg-purple-500/10 p-3 rounded-lg border border-purple-500/30">
                     💡 语音已生成！请等待视频生成完成，然后分别下载音频和视频，使用视频编辑软件（如剪映、 Premiere）将它们合并。
                   </p>
