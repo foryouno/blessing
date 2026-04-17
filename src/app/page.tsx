@@ -37,6 +37,7 @@ export default function VideoGenerator() {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [mergeVoiceAndVideo, setMergeVoiceAndVideo] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<VideoHistoryItem[]>([]);
   const [showTemplates, setShowTemplates] = useState(false);
@@ -309,6 +310,72 @@ export default function VideoGenerator() {
         if (ttsData.success && ttsData.audioUri) {
           setAudioUrl(ttsData.audioUri);
         }
+      } else if (activeTab === 'avatar' && mergeVoiceAndVideo && prompt.trim()) {
+        // 语言合并模式：先生成 TTS 语音，再生成视频
+        let generatedAudioUrl: string | undefined;
+        
+        // 第一步：生成 TTS 语音
+        try {
+          const ttsResponse = await fetch('/api/tts', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              text: prompt,
+              speaker: selectedVoice
+            }),
+          });
+          
+          const ttsData = await ttsResponse.json();
+          if (ttsData.success && ttsData.audioUri) {
+            generatedAudioUrl = ttsData.audioUri;
+            setAudioUrl(ttsData.audioUri);
+          }
+        } catch (ttsError) {
+          console.warn('TTS 生成失败:', ttsError);
+        }
+
+        // 第二步：生成视频（关闭自动音频生成）
+        const response = await fetch('/api/generate-video', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            prompt,
+            duration,
+            ratio,
+            resolution,
+            generateAudio: false, // 关闭自动音频生成
+            firstFrameUrl,
+            lastFrameUrl,
+            model,
+            audioUrl: generatedAudioUrl
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || '生成视频失败');
+        }
+
+        setVideoUrl(data.videoUrl);
+        
+        saveToHistory({
+          id: Date.now().toString(),
+          videoUrl: data.videoUrl,
+          prompt,
+          duration,
+          ratio,
+          resolution,
+          generateAudio: false,
+          model,
+          firstFrameUrl: firstFrameUrl || undefined,
+          lastFrameUrl: lastFrameUrl || undefined,
+          createdAt: new Date().toISOString(),
+        });
       } else {
         // 否则生成视频
         let customAudioUrl: string | undefined;
@@ -836,6 +903,28 @@ export default function VideoGenerator() {
                               </div>
                             )}
                           </div>
+
+                          {/* 语言合并设置 */}
+                          <div className="p-3 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-lg border border-purple-500/30">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-2">
+                                  <Switch
+                                    id="merge-voice-video"
+                                    checked={mergeVoiceAndVideo}
+                                    onCheckedChange={setMergeVoiceAndVideo}
+                                    disabled={isGenerating}
+                                  />
+                                  <Label htmlFor="merge-voice-video" className="text-white text-sm">
+                                    🎬 语言合并模式
+                                  </Label>
+                                </div>
+                              </div>
+                            </div>
+                            <p className="text-xs text-purple-300 mt-2 ml-7">
+                              先生成专业语音，再生成数字人视频（分别下载后可用视频编辑软件合并）
+                            </p>
+                          </div>
                           <div className="flex gap-2">
                             <Button
                               variant="secondary"
@@ -1064,7 +1153,7 @@ export default function VideoGenerator() {
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-semibold text-white flex items-center gap-2">
                     <Mic className="w-5 h-5 text-cyan-400" />
-                    生成的语音
+                    {mergeVoiceAndVideo ? '步骤 1/2 - 生成的语音' : '生成的语音'}
                   </h2>
                   <Button
                     onClick={handleDownload}
@@ -1085,6 +1174,11 @@ export default function VideoGenerator() {
                 <p className="text-sm text-slate-400">
                   ✅ 使用 {voiceOptions.find(v => v.value === selectedVoice)?.label || selectedVoice} 语音合成
                 </p>
+                {mergeVoiceAndVideo && (
+                  <p className="text-sm text-purple-300 bg-purple-500/10 p-3 rounded-lg border border-purple-500/30">
+                    💡 语音已生成！请等待视频生成完成，然后分别下载音频和视频，使用视频编辑软件（如剪映、 Premiere）将它们合并。
+                  </p>
+                )}
               </div>
             </Card>
           )}
@@ -1095,7 +1189,7 @@ export default function VideoGenerator() {
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-semibold text-white flex items-center gap-2">
                     <Play className="w-5 h-5 text-green-400" />
-                    生成的视频
+                    {mergeVoiceAndVideo ? '步骤 2/2 - 生成的视频' : '生成的视频'}
                   </h2>
                   <Button
                     onClick={handleDownload}
@@ -1114,6 +1208,17 @@ export default function VideoGenerator() {
                     playsInline
                   />
                 </div>
+                {mergeVoiceAndVideo && (
+                  <div className="p-4 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-lg border border-purple-500/30">
+                    <h3 className="text-white font-medium mb-2">🎬 合并指南</h3>
+                    <ol className="text-sm text-purple-200 space-y-1 list-decimal list-inside">
+                      <li>分别下载上方的音频和视频文件</li>
+                      <li>使用视频编辑软件（剪映、Adobe Premiere、Final Cut Pro等）</li>
+                      <li>将音频和视频拖入时间轴，对齐后导出</li>
+                      <li>就能得到带有专业语音的数字人视频了！</li>
+                    </ol>
+                  </div>
+                )}
               </div>
             </Card>
           )}
