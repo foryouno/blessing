@@ -318,11 +318,6 @@ export default function VideoGenerator() {
   };
 
   const handleAvatarGenerate = async () => {
-    if (!avatarPrompt.trim() && !avatarImageUrl) {
-      setError('请输入口播内容或上传头像图片');
-      return;
-    }
-    
     if (!avatarPrompt.trim()) {
       setError('请输入要口播的内容');
       return;
@@ -359,44 +354,45 @@ export default function VideoGenerator() {
         setAudioUrl(ttsData.audioUri);
       }
 
-      // 第二步：如果有头像图片，生成数字人视频
-      if (avatarImageUrl) {
-        setAvatarStep('generating-video');
-        
-        // 计算视频时长
-        const cleanText = avatarPrompt.replace(/\s/g, '');
-        const charCount = cleanText.length;
-        const wordsPerMinute = 160;
-        const durationMinutes = charCount / wordsPerMinute;
-        let videoDuration = Math.ceil(durationMinutes * 60);
-        videoDuration = Math.max(5, Math.min(60, videoDuration));
+      // 第二步：生成数字人视频 - 优化提示词促进口型同步
+      setAvatarStep('generating-video');
+      
+      // 计算视频时长
+      const cleanText = avatarPrompt.replace(/\s/g, '');
+      const charCount = cleanText.length;
+      const wordsPerMinute = 160;
+      const durationMinutes = charCount / wordsPerMinute;
+      let videoDuration = Math.ceil(durationMinutes * 60);
+      videoDuration = Math.max(5, Math.min(60, videoDuration));
 
-        const videoResponse = await fetch('/api/generate-video', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            prompt: `一位专业的数字人正在认真朗读，表情自然，语速适中，眼神专注，专业的播读风格。${avatarPrompt}`,
-            duration: videoDuration,
-            ratio: '16:9',
-            resolution: '720p',
-            generateAudio: false,
-            firstFrameUrl: avatarImageUrl,
-            lastFrameUrl: null,
-            model: 'doubao-seedance-1-5-pro-251215',
-            audioUrl: generatedAudioUrl
-          }),
-        });
+      // 优化提示词：促进口型同步和自然的朗读效果
+      const enhancedPrompt = `一位专业的主播正在认真朗读，口型与语音同步，嘴唇自然开合，表情丰富自然，眼神专注，语速适中，专业的播读风格。清晰的口型动作，自然的面部表情，正面半身镜头，专业演播室背景。内容：${avatarPrompt}`;
 
-        const videoData = await videoResponse.json();
-        if (!videoResponse.ok) {
-          throw new Error(videoData.error || '视频生成失败');
-        }
+      const videoResponse = await fetch('/api/generate-video', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: enhancedPrompt,
+          duration: videoDuration,
+          ratio: '16:9',
+          resolution: '720p',
+          generateAudio: true, // 让模型也生成音频，双重保障
+          firstFrameUrl: avatarImageUrl,
+          lastFrameUrl: null,
+          model: 'doubao-seedance-1-5-pro-251215',
+          audioUrl: generatedAudioUrl
+        }),
+      });
 
-        if (videoData.videoUrl) {
-          setAvatarVideoUrl(videoData.videoUrl);
-        }
+      const videoData = await videoResponse.json();
+      if (!videoResponse.ok) {
+        throw new Error(videoData.error || '视频生成失败');
+      }
+
+      if (videoData.videoUrl) {
+        setAvatarVideoUrl(videoData.videoUrl);
       }
 
       setAvatarStep('completed');
@@ -1149,19 +1145,39 @@ export default function VideoGenerator() {
                     <div className="flex items-start gap-3">
                       <User className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
                       <div>
-                        <h3 className="text-white font-medium mb-1">🎬 图片口播生成</h3>
+                        <h3 className="text-white font-medium mb-1">🎬 口型驱动 + 音视频自动合成</h3>
                         <p className="text-sm text-slate-300">
-                          上传一张人物头像或图片，输入口播文案，生成专业的语音播报。
-                          适合制作知识分享、产品介绍、新闻播报等内容！
+                          只需要填好文本，就能生成口型同步的数字人口播视频！
+                          适合知识分享、产品介绍、新闻播报等各种场景！
                         </p>
                       </div>
                     </div>
                   </Card>
 
+                  {/* 口播文案 - 放在最前面，突出重点 */}
+                  <Card className="p-4 bg-slate-700/50 border-slate-600 border-2 border-green-500/30">
+                    <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                      <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                      📝 口播文案（必填）
+                    </h4>
+                    <Textarea
+                      placeholder="在这里输入你要口播的内容...&#10;&#10;示例：&#10;大家好，欢迎来到今天的节目！今天我们来聊一聊人工智能的发展历程..."
+                      value={avatarPrompt}
+                      onChange={(e) => setAvatarPrompt(e.target.value)}
+                      className="min-h-40 bg-slate-800/50 border-slate-600 text-white placeholder:text-gray-500 resize-none text-lg"
+                      disabled={isGenerating}
+                    />
+                    <div className="flex justify-between items-center mt-3">
+                      <p className="text-sm text-slate-400">
+                        字符数: <span className="text-green-400 font-medium">{avatarPrompt.replace(/\s/g, '').length}</span> 字
+                      </p>
+                    </div>
+                  </Card>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* 头像图片上传 */}
+                    {/* 头像图片上传 - 可选 */}
                     <Card className="p-4 bg-slate-700/50 border-slate-600">
-                      <h4 className="text-white font-medium mb-3">📷 头像/图片</h4>
+                      <h4 className="text-white font-medium mb-3">📷 头像/图片（可选）</h4>
                       {avatarImageUrl ? (
                         <div className="space-y-3">
                           <div className="relative">
@@ -1183,7 +1199,7 @@ export default function VideoGenerator() {
                       ) : (
                         <div
                           onClick={() => avatarInputRef.current?.click()}
-                          className="border-2 border-dashed border-slate-600 rounded-lg p-8 text-center cursor-pointer hover:border-green-500/50 transition-colors"
+                          className="border-2 border-dashed border-slate-600 rounded-lg p-6 text-center cursor-pointer hover:border-green-500/50 transition-colors"
                         >
                           <input
                             ref={avatarInputRef}
@@ -1194,21 +1210,21 @@ export default function VideoGenerator() {
                             disabled={isGenerating}
                           />
                           {isUploadingAvatar ? (
-                            <Loader2 className="w-10 h-10 mx-auto text-green-400 animate-spin" />
+                            <Loader2 className="w-8 h-8 mx-auto text-green-400 animate-spin" />
                           ) : (
                             <>
-                              <Upload className="w-10 h-10 mx-auto text-slate-500 mb-3" />
+                              <Upload className="w-8 h-8 mx-auto text-slate-500 mb-2" />
                               <p className="text-slate-500 text-sm">点击上传头像图片</p>
-                              <p className="text-xs text-slate-600 mt-1">支持 JPG、PNG 等格式</p>
+                              <p className="text-xs text-slate-600 mt-1">不上传也能生成</p>
                             </>
                           )}
                         </div>
                       )}
                     </Card>
 
-                    {/* 语音选择 */}
+                    {/* 语音选择 - 智能默认 */}
                     <Card className="p-4 bg-slate-700/50 border-slate-600">
-                      <h4 className="text-white font-medium mb-3">🎤 选择语音</h4>
+                      <h4 className="text-white font-medium mb-3">🎤 语音风格</h4>
                       <Select value={selectedVoice} onValueChange={setSelectedVoice} disabled={isGenerating}>
                         <SelectTrigger className="bg-slate-800 border-slate-600 text-white">
                           <SelectValue placeholder="选择语音" />
@@ -1228,31 +1244,11 @@ export default function VideoGenerator() {
                       
                       <div className="mt-4 p-3 bg-green-500/10 rounded-lg border border-green-500/30">
                         <p className="text-xs text-green-300">
-                          💡 建议根据口播内容选择合适的语音：<br/>
-                          • 知识分享：儒雅男声或知性女声<br/>
-                          • 产品介绍：活力女声或稳重男声<br/>
-                          • 新闻播报：专业主播音色
+                          ✨ 默认使用小荷女声，适合大部分场景
                         </p>
                       </div>
                     </Card>
                   </div>
-
-                  {/* 口播文案 */}
-                  <Card className="p-4 bg-slate-700/50 border-slate-600">
-                    <h4 className="text-white font-medium mb-3">📝 口播文案</h4>
-                    <Textarea
-                      placeholder="在这里输入你要口播的内容...&#10;&#10;示例：&#10;大家好，欢迎来到今天的节目！今天我们来聊一聊人工智能的发展历程..."
-                      value={avatarPrompt}
-                      onChange={(e) => setAvatarPrompt(e.target.value)}
-                      className="min-h-32 bg-slate-800/50 border-slate-600 text-white placeholder:text-gray-500 resize-none"
-                      disabled={isGenerating}
-                    />
-                    <div className="flex justify-between items-center mt-2">
-                      <p className="text-xs text-slate-500">
-                        字符数: {avatarPrompt.replace(/\s/g, '').length} 字
-                      </p>
-                    </div>
-                  </Card>
 
                   {/* 生成进度显示 */}
                   {isGenerating && (
