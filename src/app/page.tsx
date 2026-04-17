@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Sparkles, Video, Loader2, Download, Play, Upload, X, History, Trash2, Clock, Lightbulb, Copy, Wand2, Palette, Zap, Film, User, Mic, Smile, Monitor, FileText } from 'lucide-react';
+import { Sparkles, Video, Loader2, Download, Play, Upload, X, History, Trash2, Clock, Lightbulb, Copy, Wand2, Palette, Zap, Film, User, Mic, Smile, Monitor, AlignLeft } from 'lucide-react';
 
 interface VideoHistoryItem {
   id: string;
@@ -45,7 +45,7 @@ export default function VideoGenerator() {
   const promptTemplates = [
     {
       title: '数字人读稿',
-      icon: <FileText className="w-4 h-4" />,
+      icon: <AlignLeft className="w-4 h-4" />,
       template: '一位专业的数字人正在认真朗读稿件，表情自然，语速适中，眼神专注，吐字清晰，专业的播读风格'
     },
     {
@@ -972,7 +972,7 @@ export default function VideoGenerator() {
                   
                   <Card className="p-4 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border-cyan-500/30">
                     <div className="flex items-start gap-3">
-                      <FileText className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
+                      <AlignLeft className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
                       <div className="flex-1">
                         <h3 className="text-white font-medium mb-1">📝 数字人读稿</h3>
                         <p className="text-sm text-slate-300 mb-3">
@@ -1072,7 +1072,7 @@ export default function VideoGenerator() {
                               className="bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300"
                               disabled={isGenerating}
                             >
-                              <FileText className="w-4 h-4 mr-2" />
+                              <AlignLeft className="w-4 h-4 mr-2" />
                               添加读稿描述
                             </Button>
                             <Button
