@@ -41,6 +41,8 @@ export default function VideoGenerator() {
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<VideoHistoryItem[]>([]);
   const [showTemplates, setShowTemplates] = useState(false);
+  
+  // 强制重新编译的注释
 
   const promptTemplates = [
     {
