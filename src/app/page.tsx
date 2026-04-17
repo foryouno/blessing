@@ -303,7 +303,7 @@ export default function VideoGenerator() {
       }
 
       setAvatarImageUrl(data.imageUrl);
-    } catch (err) {
+    } catch {
       setError('头像图片上传失败');
     } finally {
       setIsUploadingAvatar(false);
@@ -331,7 +331,6 @@ export default function VideoGenerator() {
 
     try {
       // 第一步：生成 TTS 语音
-      let generatedAudioUrl: string | undefined;
       
       const ttsResponse = await fetch('/api/tts', {
         method: 'POST',
@@ -350,7 +349,6 @@ export default function VideoGenerator() {
       }
       
       if (ttsData.success && ttsData.audioUri) {
-        generatedAudioUrl = ttsData.audioUri;
         setAudioUrl(ttsData.audioUri);
       }
 
@@ -378,11 +376,9 @@ export default function VideoGenerator() {
           duration: videoDuration,
           ratio: '16:9',
           resolution: '720p',
-          generateAudio: true, // 让模型也生成音频，双重保障
+          generateAudio: true,
           firstFrameUrl: avatarImageUrl,
-          lastFrameUrl: null,
-          model: 'doubao-seedance-1-5-pro-251215',
-          audioUrl: generatedAudioUrl
+          model: 'doubao-seedance-1-5-pro-251215'
         }),
       });
 
@@ -397,7 +393,7 @@ export default function VideoGenerator() {
 
       setAvatarStep('completed');
       
-    } catch (err) {
+    } catch {
       setError('口播生成时发生错误');
     } finally {
       setIsGenerating(false);
@@ -444,7 +440,6 @@ export default function VideoGenerator() {
         }
       } else if (activeTab === 'avatar' && mergeVoiceAndVideo && prompt.trim()) {
         // 语言合并模式：先生成 TTS 语音，再生成视频
-        let generatedAudioUrl: string | undefined;
         
         // 第一步：生成 TTS 语音
         try {
@@ -461,11 +456,10 @@ export default function VideoGenerator() {
           
           const ttsData = await ttsResponse.json();
           if (ttsData.success && ttsData.audioUri) {
-            generatedAudioUrl = ttsData.audioUri;
             setAudioUrl(ttsData.audioUri);
           }
-        } catch (ttsError) {
-          console.warn('TTS 生成失败:', ttsError);
+        } catch {
+          console.warn('TTS 生成失败');
         }
 
         // 第二步：生成视频（关闭自动音频生成）
@@ -479,11 +473,9 @@ export default function VideoGenerator() {
             duration,
             ratio,
             resolution,
-            generateAudio: false, // 关闭自动音频生成
+            generateAudio: false,
             firstFrameUrl,
-            lastFrameUrl,
-            model,
-            audioUrl: generatedAudioUrl
+            model
           }),
         });
 
@@ -510,7 +502,6 @@ export default function VideoGenerator() {
         });
       } else {
         // 否则生成视频
-        let customAudioUrl: string | undefined;
         
         // 如果是数字人标签页且开启音频，先调用 TTS 生成语音
         if (activeTab === 'avatar' && generateAudio && prompt.trim()) {
@@ -528,10 +519,10 @@ export default function VideoGenerator() {
             
             const ttsData = await ttsResponse.json();
             if (ttsData.success && ttsData.audioUri) {
-              customAudioUrl = ttsData.audioUri;
+              // 虽然不使用 customAudioUrl，但我们仍然可以记录日志
             }
-          } catch (ttsError) {
-            console.warn('TTS 生成失败，将使用默认音频生成:', ttsError);
+          } catch {
+            console.warn('TTS 生成失败，将使用默认音频生成');
           }
         }
 
@@ -548,8 +539,7 @@ export default function VideoGenerator() {
             generateAudio,
             firstFrameUrl,
             lastFrameUrl,
-            model,
-            audioUrl: customAudioUrl
+            model
           }),
         });
 
@@ -575,7 +565,7 @@ export default function VideoGenerator() {
           createdAt: new Date().toISOString(),
         });
       }
-    } catch (err) {
+    } catch {
       setError(model === 'doubao-seed-tts' ? '音频生成时发生错误' : '生成视频时发生错误');
     } finally {
       setIsGenerating(false);
