@@ -10,8 +10,6 @@ export async function POST(request: NextRequest) {
     const { 
       prompt, 
       duration = 5, 
-      ratio = '16:9', 
-      generateAudio = true,
       firstFrameUrl,
       lastFrameUrl,
       model = 'doubao-seedance-1-5-pro-251215'
@@ -30,7 +28,7 @@ export async function POST(request: NextRequest) {
 
     const content: Content[] = [];
 
-    if (firstFrameUrl) {
+    if (firstFrameUrl && firstFrameUrl !== 'null' && firstFrameUrl !== 'undefined') {
       content.push({
         type: 'image_url' as const,
         image_url: { url: firstFrameUrl },
@@ -38,7 +36,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    if (lastFrameUrl) {
+    if (lastFrameUrl && lastFrameUrl !== 'null' && lastFrameUrl !== 'undefined') {
       content.push({
         type: 'image_url' as const,
         image_url: { url: lastFrameUrl },
@@ -53,8 +51,6 @@ export async function POST(request: NextRequest) {
     const response = await client.videoGeneration(content, {
       model,
       duration,
-      ratio,
-      generateAudio,
     });
 
     if (!response.videoUrl) {
@@ -66,11 +62,14 @@ export async function POST(request: NextRequest) {
       taskId: response.response.id,
       status: response.response.status
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Video generation error:', error);
+    const apiError = error as { statusCode?: number; response?: unknown; message?: string };
+    console.error('Error response:', apiError.response);
+    console.error('Error message:', apiError.message);
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      { error: apiError.message || 'Internal server error', details: apiError.response },
+      { status: apiError.statusCode || 500 }
     );
   }
 }

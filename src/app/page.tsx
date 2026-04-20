@@ -413,8 +413,6 @@ export default function VideoGenerator() {
         body: JSON.stringify({
           prompt: enhancedPrompt,
           duration: videoDuration,
-          ratio: '16:9',
-          generateAudio: true,
           firstFrameUrl: avatarImageUrl,
           model: 'doubao-seedance-1-5-pro-251215'
         }),
@@ -577,7 +575,7 @@ export default function VideoGenerator() {
             duration,
             ratio,
             generateAudio: false,
-            firstFrameUrl,
+            ...(firstFrameUrl && { firstFrameUrl }),
             model
           }),
         });
@@ -638,8 +636,8 @@ export default function VideoGenerator() {
             duration,
             ratio,
             generateAudio,
-            firstFrameUrl,
-            lastFrameUrl,
+            ...(firstFrameUrl && { firstFrameUrl }),
+            ...(lastFrameUrl && { lastFrameUrl }),
             model
           }),
         });
