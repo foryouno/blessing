@@ -11,7 +11,6 @@ export async function POST(request: NextRequest) {
       prompt, 
       duration = 5, 
       ratio = '16:9', 
-      resolution = '720p', 
       generateAudio = true,
       firstFrameUrl,
       lastFrameUrl,
@@ -55,7 +54,6 @@ export async function POST(request: NextRequest) {
       model,
       duration,
       ratio,
-      resolution,
       generateAudio,
     });
 

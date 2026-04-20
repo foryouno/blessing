@@ -18,7 +18,6 @@ interface VideoHistoryItem {
   prompt: string;
   duration: number;
   ratio: string;
-  resolution: string;
   generateAudio: boolean;
   model: string;
   firstFrameUrl?: string;
@@ -40,7 +39,6 @@ export default function VideoGenerator() {
   const [prompt, setPrompt] = useState('');
   const [duration, setDuration] = useState(5);
   const [ratio, setRatio] = useState('16:9');
-  const [resolution, setResolution] = useState('720p');
   const [generateAudio, setGenerateAudio] = useState(true);
   const [model, setModel] = useState('doubao-seedance-1-5-pro-251215');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -222,7 +220,6 @@ export default function VideoGenerator() {
     setPrompt(item.prompt);
     setDuration(item.duration);
     setRatio(item.ratio);
-    setResolution(item.resolution);
     setGenerateAudio(item.generateAudio);
     setModel(item.model);
     setShowHistory(false);
@@ -417,7 +414,6 @@ export default function VideoGenerator() {
           prompt: enhancedPrompt,
           duration: videoDuration,
           ratio: '16:9',
-          resolution: '720p',
           generateAudio: true,
           firstFrameUrl: avatarImageUrl,
           model: 'doubao-seedance-1-5-pro-251215'
@@ -580,7 +576,6 @@ export default function VideoGenerator() {
             prompt,
             duration,
             ratio,
-            resolution,
             generateAudio: false,
             firstFrameUrl,
             model
@@ -601,7 +596,6 @@ export default function VideoGenerator() {
           prompt,
           duration,
           ratio,
-          resolution,
           generateAudio: false,
           model,
           firstFrameUrl: firstFrameUrl || undefined,
@@ -643,7 +637,6 @@ export default function VideoGenerator() {
             prompt,
             duration,
             ratio,
-            resolution,
             generateAudio,
             firstFrameUrl,
             lastFrameUrl,
@@ -665,7 +658,6 @@ export default function VideoGenerator() {
           prompt,
           duration,
           ratio,
-          resolution,
           generateAudio,
           model,
           firstFrameUrl: firstFrameUrl || undefined,
@@ -793,9 +785,6 @@ export default function VideoGenerator() {
                           </span>
                           <span className="text-xs px-2 py-1 bg-blue-500/20 text-blue-300 rounded">
                             {item.ratio}
-                          </span>
-                          <span className="text-xs px-2 py-1 bg-green-500/20 text-green-300 rounded">
-                            {item.resolution}
                           </span>
                           {item.generateAudio && (
                             <span className="text-xs px-2 py-1 bg-yellow-500/20 text-yellow-300 rounded">
@@ -1719,20 +1708,6 @@ export default function VideoGenerator() {
                             <SelectItem value="9:16">9:16 (竖屏)</SelectItem>
                             <SelectItem value="1:1">1:1 (方形)</SelectItem>
                             <SelectItem value="4:3">4:3 (传统)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div>
-                        <Label className="text-white text-sm font-medium mb-2 block">分辨率</Label>
-                        <Select value={resolution} onValueChange={setResolution} disabled={isGenerating}>
-                          <SelectTrigger className="bg-slate-700/50 border-slate-600 text-white">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-slate-800 border-slate-600">
-                            <SelectItem value="480p">480p</SelectItem>
-                            <SelectItem value="720p">720p</SelectItem>
-                            <SelectItem value="1080p">1080p</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
