@@ -196,9 +196,9 @@ export default function VideoGenerator() {
     const charCount = cleanText.length;
     const wordsPerMinute = 160;
     const durationMinutes = charCount / wordsPerMinute;
-    // 转换为秒，最小 5 秒，最大 60 秒（受模型限制）
+    // 转换为秒，最小 5 秒，最大 12 秒（受模型限制）
     let durationSeconds = Math.ceil(durationMinutes * 60);
-    durationSeconds = Math.max(5, Math.min(60, durationSeconds));
+    durationSeconds = Math.max(5, Math.min(12, durationSeconds));
     return durationSeconds;
   };
 
@@ -400,7 +400,7 @@ export default function VideoGenerator() {
       const wordsPerMinute = 160;
       const durationMinutes = charCount / wordsPerMinute;
       let videoDuration = Math.ceil(durationMinutes * 60);
-      videoDuration = Math.max(5, Math.min(60, videoDuration));
+      videoDuration = Math.max(5, Math.min(12, videoDuration));
 
       // 优化提示词：促进口型同步和自然的朗读效果
       const enhancedPrompt = `一位专业的新闻主播正在镜头前认真朗读，口型与语音完全同步，每一个字都有对应的口型变化，嘴唇开合自然清晰，表情丰富生动，眼神专注自信。正面半身镜头，专业演播室背景，光线柔和均匀，画质高清。主播面带微笑，语速适中，专业的播读风格。内容：${avatarPrompt}`;
@@ -1688,7 +1688,7 @@ export default function VideoGenerator() {
                             }
                           }}
                           min={5}
-                          max={60}
+                          max={12}
                           step={1}
                           disabled={isGenerating || (autoDuration && activeTab === 'avatar')}
                           className={`${autoDuration && activeTab === 'avatar' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
