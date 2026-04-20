@@ -1333,9 +1333,7 @@ export default function VideoGenerator() {
                             ) : (
                               <span className="flex items-center gap-2">
                                 <Sparkles className="w-4 h-4" />
-                                {lipSyncEnabled 
-                                  ? `生成对口型${avatarImageUrl ? '视频' : '语音'}` 
-                                  : `生成${avatarImageUrl ? '视频' : '语音'}`}
+                                生成口播
                               </span>
                             )}
                           </Button>
