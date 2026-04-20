@@ -364,7 +364,7 @@ export default function VideoGenerator() {
       videoDuration = Math.max(5, Math.min(60, videoDuration));
 
       // 优化提示词：促进口型同步和自然的朗读效果
-      const enhancedPrompt = `一位专业的主播正在认真朗读，口型与语音同步，嘴唇自然开合，表情丰富自然，眼神专注，语速适中，专业的播读风格。清晰的口型动作，自然的面部表情，正面半身镜头，专业演播室背景，光线柔和，画质清晰。内容：${avatarPrompt}`;
+      const enhancedPrompt = `一位专业的新闻主播正在镜头前认真朗读，口型与语音完全同步，每一个字都有对应的口型变化，嘴唇开合自然清晰，表情丰富生动，眼神专注自信。正面半身镜头，专业演播室背景，光线柔和均匀，画质高清。主播面带微笑，语速适中，专业的播读风格。内容：${avatarPrompt}`;
 
       const videoResponse = await fetch('/api/generate-video', {
         method: 'POST',
