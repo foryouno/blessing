@@ -10,6 +10,7 @@ export async function POST(request: NextRequest) {
     const { 
       prompt, 
       duration = 5, 
+      ratio = '16:9',
       firstFrameUrl,
       lastFrameUrl,
       model = 'doubao-seedance-1-5-pro-251215'
@@ -51,6 +52,7 @@ export async function POST(request: NextRequest) {
     const response = await client.videoGeneration(content, {
       model,
       duration,
+      ratio,
     });
 
     if (!response.videoUrl) {
