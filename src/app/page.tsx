@@ -26,6 +26,15 @@ interface VideoHistoryItem {
   createdAt: string;
 }
 
+interface ImageHistoryItem {
+  id: string;
+  imageUrl: string;
+  prompt: string;
+  size: string;
+  model: string;
+  createdAt: string;
+}
+
 export default function VideoGenerator() {
   const [prompt, setPrompt] = useState('');
   const [duration, setDuration] = useState(5);
@@ -40,6 +49,8 @@ export default function VideoGenerator() {
   const [mergeVoiceAndVideo, setMergeVoiceAndVideo] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<VideoHistoryItem[]>([]);
+  const [showImageHistory, setShowImageHistory] = useState(false);
+  const [imageHistory, setImageHistory] = useState<ImageHistoryItem[]>([]);
   const [showTemplates, setShowTemplates] = useState(false);
   
   // 强制重新编译的注释
@@ -135,6 +146,10 @@ export default function VideoGenerator() {
     if (savedHistory) {
       setHistory(JSON.parse(savedHistory));
     }
+    const savedImageHistory = localStorage.getItem('imageHistory');
+    if (savedImageHistory) {
+      setImageHistory(JSON.parse(savedImageHistory));
+    }
   }, []);
 
   const saveToHistory = (item: VideoHistoryItem) => {
@@ -143,16 +158,35 @@ export default function VideoGenerator() {
     localStorage.setItem('videoHistory', JSON.stringify(newHistory));
   };
 
+  const saveToImageHistory = (item: ImageHistoryItem) => {
+    const newHistory = [item, ...imageHistory].slice(0, 50);
+    setImageHistory(newHistory);
+    localStorage.setItem('imageHistory', JSON.stringify(newHistory));
+  };
+
   const removeFromHistory = (id: string) => {
     const newHistory = history.filter(item => item.id !== id);
     setHistory(newHistory);
     localStorage.setItem('videoHistory', JSON.stringify(newHistory));
   };
 
+  const removeFromImageHistory = (id: string) => {
+    const newHistory = imageHistory.filter(item => item.id !== id);
+    setImageHistory(newHistory);
+    localStorage.setItem('imageHistory', JSON.stringify(newHistory));
+  };
+
   const clearHistory = () => {
     if (confirm('确定要清空所有历史记录吗？')) {
       setHistory([]);
       localStorage.removeItem('videoHistory');
+    }
+  };
+
+  const clearImageHistory = () => {
+    if (confirm('确定要清空所有图片历史记录吗？')) {
+      setImageHistory([]);
+      localStorage.removeItem('imageHistory');
     }
   };
 
@@ -438,6 +472,16 @@ export default function VideoGenerator() {
 
       if (data.success && data.imageUrls && data.imageUrls.length > 0) {
         setImageUrl(data.imageUrls[0]);
+        
+        // 保存到历史记录
+        saveToImageHistory({
+          id: Date.now().toString(),
+          imageUrl: data.imageUrls[0],
+          prompt: imagePrompt,
+          size: imageSize,
+          model: imageModel,
+          createdAt: new Date().toISOString()
+        });
       }
     } catch {
       setError('图片生成时发生错误');
@@ -1356,6 +1400,115 @@ export default function VideoGenerator() {
                 {/* 图片生成标签页 */}
                 <TabsContent value="image-gen" className="mt-4">
                   <div className="space-y-6">
+                    {/* 图片历史记录按钮 */}
+                    <div className="flex justify-end mb-4">
+                      <Button
+                        variant="secondary"
+                        onClick={() => setShowImageHistory(!showImageHistory)}
+                        className="flex items-center gap-2"
+                      >
+                        <History className="w-4 h-4" />
+                        {showImageHistory ? '隐藏历史' : '图片历史'}
+                        {imageHistory.length > 0 && (
+                          <span className="ml-1 px-2 py-0.5 bg-purple-600 rounded-full text-xs">
+                            {imageHistory.length}
+                          </span>
+                        )}
+                      </Button>
+                    </div>
+
+                    {/* 图片历史记录展示 */}
+                    {showImageHistory && imageHistory.length > 0 && (
+                      <Card className="mb-6 p-6 bg-slate-800/50 backdrop-blur border-purple-500/20">
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                          <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                            <Clock className="w-5 h-5 text-purple-400" />
+                            图片历史记录
+                          </h2>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={clearImageHistory}
+                            className="flex items-center gap-1"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            清空
+                          </Button>
+                        </div>
+                        <ScrollArea className="h-96">
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {imageHistory.map((item) => (
+                              <Card key={item.id} className="p-4 bg-slate-700/50 border-slate-600 hover:border-purple-500/30 transition-colors">
+                                <div className="relative group">
+                                  <div className="relative rounded-lg overflow-hidden mb-3">
+                                    <img
+                                      src={item.imageUrl}
+                                      alt={item.prompt}
+                                      className="w-full h-40 object-cover"
+                                    />
+                                  </div>
+                                  <p className="text-sm text-slate-300 mb-2 line-clamp-2">
+                                    {item.prompt}
+                                  </p>
+                                  <div className="flex items-center justify-between text-xs text-slate-500 mb-3">
+                                    <span>{item.size}</span>
+                                    <span>
+                                      {new Date(item.createdAt).toLocaleDateString('zh-CN', {
+                                        month: 'short',
+                                        day: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                      })}
+                                    </span>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      variant="secondary"
+                                      size="sm"
+                                      onClick={() => {
+                                        if (activeTab === 'avatar-voice') {
+                                          setAvatarImageUrl(item.imageUrl);
+                                        } else {
+                                          setFirstFrameUrl(item.imageUrl);
+                                        }
+                                      }}
+                                      className="flex-1"
+                                    >
+                                      <Upload className="w-3 h-3 mr-1" />
+                                      复用
+                                    </Button>
+                                    <Button
+                                      variant="secondary"
+                                      size="sm"
+                                      onClick={() => {
+                                        const link = document.createElement('a');
+                                        link.href = item.imageUrl;
+                                        link.download = `image-${item.id}.png`;
+                                        link.click();
+                                      }}
+                                      className="flex-1"
+                                    >
+                                      <Download className="w-3 h-3 mr-1" />
+                                      下载
+                                    </Button>
+                                    <Button
+                                      variant="destructive"
+                                      size="sm"
+                                      onClick={() => removeFromImageHistory(item.id)}
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              </Card>
+                            ))}
+                          </div>
+                        </ScrollArea>
+                      </div>
+                    </Card>
+                    )}
+
                     {/* 图片描述 */}
                     <div>
                       <Label className="text-white text-sm font-medium mb-2 block">
