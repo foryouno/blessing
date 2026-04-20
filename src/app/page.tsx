@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
-import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -1400,108 +1399,6 @@ export default function VideoGenerator() {
                   </div>
                 </TabsContent>
               </Tabs>
-
-              {activeTab !== 'avatar-voice' && (
-                <div className={`grid gap-6 ${model === 'doubao-seed-tts' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4'}`}>
-                  {model !== 'doubao-seed-tts' && (
-                    <>
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <Label className="text-white text-sm font-medium">
-                            时长: {duration} 秒
-                          </Label>
-                          {autoDuration && activeTab === 'avatar' && (
-                            <span className="text-xs text-cyan-400 bg-cyan-500/20 px-2 py-0.5 rounded">
-                              自动计算中
-                            </span>
-                          )}
-                        </div>
-                        <Slider
-                          value={[duration]}
-                          onValueChange={(value) => {
-                            if (!autoDuration || activeTab !== 'avatar') {
-                              setDuration(value[0]);
-                            }
-                          }}
-                          min={5}
-                          max={60}
-                          step={1}
-                          disabled={isGenerating || (autoDuration && activeTab === 'avatar')}
-                          className={`${autoDuration && activeTab === 'avatar' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                        />
-                      </div>
-
-                      <div>
-                        <Label className="text-white text-sm font-medium mb-2 block">宽高比</Label>
-                        <Select value={ratio} onValueChange={setRatio} disabled={isGenerating}>
-                          <SelectTrigger className="bg-slate-700/50 border-slate-600 text-white">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-slate-800 border-slate-600">
-                            <SelectItem value="16:9">16:9 (横屏)</SelectItem>
-                            <SelectItem value="9:16">9:16 (竖屏)</SelectItem>
-                            <SelectItem value="1:1">1:1 (方形)</SelectItem>
-                            <SelectItem value="4:3">4:3 (传统)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div>
-                        <Label className="text-white text-sm font-medium mb-2 block">分辨率</Label>
-                        <Select value={resolution} onValueChange={setResolution} disabled={isGenerating}>
-                          <SelectTrigger className="bg-slate-700/50 border-slate-600 text-white">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-slate-800 border-slate-600">
-                            <SelectItem value="480p">480p</SelectItem>
-                            <SelectItem value="720p">720p</SelectItem>
-                            <SelectItem value="1080p">1080p</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </>
-                  )}
-
-                  <div>
-                    <Label className="text-white text-sm font-medium mb-2 block">生成模型</Label>
-                    <Select value={model} onValueChange={setModel} disabled={isGenerating}>
-                      <SelectTrigger className="bg-slate-700/50 border-slate-600 text-white">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-800 border-slate-600">
-                        <SelectItem value="doubao-seedance-1-5-pro-251215">
-                          <div className="flex flex-col">
-                            <span className="font-medium">Doubao Seedance 1.5 Pro</span>
-                            <span className="text-sm text-slate-400">✨ 专业版</span>
-                            <span className="text-xs text-slate-500">火山引擎 · 视频生成</span>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="doubao-seed-tts">
-                          <div className="flex flex-col">
-                            <span className="font-medium">Doubao Seed TTS</span>
-                            <span className="text-sm text-slate-400">🎤 语音合成</span>
-                            <span className="text-xs text-slate-500">豆包大模型 · 专业人声</span>
-                          </div>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              )}
-
-              {model !== 'doubao-seed-tts' && (
-                <div className="flex items-center gap-3">
-                  <Switch
-                    id="audio"
-                    checked={generateAudio}
-                    onCheckedChange={setGenerateAudio}
-                    disabled={isGenerating}
-                  />
-                  <Label htmlFor="audio" className="text-white cursor-pointer">
-                    生成音频（背景音乐和音效）
-                  </Label>
-                </div>
-              )}
 
               {error && (
                 <div className="p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-300">
