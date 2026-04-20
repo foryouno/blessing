@@ -108,6 +108,8 @@ export default function VideoGenerator() {
   const [imagePrompt, setImagePrompt] = useState('');
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [imageSize, setImageSize] = useState('2K');
+  const [imageModel, setImageModel] = useState('doubao-seedream-5-0-260128');
   
   // 语音选项
   const voiceOptions = [
@@ -422,7 +424,9 @@ export default function VideoGenerator() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          prompt: imagePrompt
+          prompt: imagePrompt,
+          size: imageSize,
+          model: imageModel
         }),
       });
 
@@ -1364,6 +1368,57 @@ export default function VideoGenerator() {
                       />
                     </div>
 
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* 图片尺寸 */}
+                      <div>
+                        <Label className="text-white text-sm font-medium mb-2 block">
+                          图片尺寸
+                        </Label>
+                        <Select value={imageSize} onValueChange={setImageSize} disabled={isGeneratingImage}>
+                          <SelectTrigger className="bg-slate-800 border-slate-600 text-white">
+                            <SelectValue placeholder="选择尺寸" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-slate-800 border-slate-600">
+                            <SelectItem value="2K" className="text-white hover:bg-slate-700">
+                              2K (2560x1440)
+                            </SelectItem>
+                            <SelectItem value="4K" className="text-white hover:bg-slate-700">
+                              4K (3840x2160)
+                            </SelectItem>
+                            <SelectItem value="1024x1024" className="text-white hover:bg-slate-700">
+                              1024x1024 (正方形)
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* 模型选择 */}
+                      <div>
+                        <Label className="text-white text-sm font-medium mb-2 block">
+                          生成模型
+                        </Label>
+                        <Select value={imageModel} onValueChange={setImageModel} disabled={isGeneratingImage}>
+                          <SelectTrigger className="bg-slate-800 border-slate-600 text-white">
+                            <SelectValue placeholder="选择模型" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-slate-800 border-slate-600">
+                            <SelectItem value="doubao-seedream-5-0-260128" className="text-white hover:bg-slate-700">
+                              <div className="flex flex-col">
+                                <span>Doubao SeeDream 5.0</span>
+                                <span className="text-xs text-slate-400">最新模型，画质最佳</span>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="doubao-seedream-4-5-251128" className="text-white hover:bg-slate-700">
+                              <div className="flex flex-col">
+                                <span>Doubao SeeDream 4.5</span>
+                                <span className="text-xs text-slate-400">稳定可靠</span>
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
                     {/* 生成按钮 */}
                     <Button
                       onClick={handleGenerateImage}
@@ -1393,6 +1448,35 @@ export default function VideoGenerator() {
                             alt="生成的图片"
                             className="w-full h-auto rounded-lg"
                           />
+                        </div>
+                        <div className="mt-4 flex gap-2">
+                          <Button
+                            variant="secondary"
+                            onClick={() => {
+                              const link = document.createElement('a');
+                              link.href = imageUrl;
+                              link.download = 'generated-image.png';
+                              link.click();
+                            }}
+                            className="flex-1"
+                          >
+                            <Download className="w-4 h-4 mr-2" />
+                            下载图片
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            onClick={() => {
+                              if (activeTab === 'avatar-voice') {
+                                setAvatarImageUrl(imageUrl);
+                              } else {
+                                setFirstFrameUrl(imageUrl);
+                              }
+                            }}
+                            className="flex-1"
+                          >
+                            <Upload className="w-4 h-4 mr-2" />
+                            用作头像/首帧
+                          </Button>
                         </div>
                       </Card>
                     )}
