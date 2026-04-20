@@ -1481,11 +1481,20 @@ export default function VideoGenerator() {
                                     <Button
                                       variant="secondary"
                                       size="sm"
-                                      onClick={() => {
-                                        const link = document.createElement('a');
-                                        link.href = item.imageUrl;
-                                        link.download = `image-${item.id}.png`;
-                                        link.click();
+                                      onClick={async () => {
+                                        try {
+                                          const response = await fetch(item.imageUrl);
+                                          const blob = await response.blob();
+                                          const blobUrl = window.URL.createObjectURL(blob);
+                                          const link = document.createElement('a');
+                                          link.href = blobUrl;
+                                          link.download = `image-${item.id}.png`;
+                                          link.click();
+                                          window.URL.revokeObjectURL(blobUrl);
+                                        } catch {
+                                          // 如果 fetch 失败，回退到直接打开
+                                          window.open(item.imageUrl, '_blank');
+                                        }
                                       }}
                                       className="flex-1"
                                     >
@@ -1606,11 +1615,21 @@ export default function VideoGenerator() {
                         <div className="mt-4 flex gap-2">
                           <Button
                             variant="secondary"
-                            onClick={() => {
-                              const link = document.createElement('a');
-                              link.href = imageUrl;
-                              link.download = 'generated-image.png';
-                              link.click();
+                            onClick={async () => {
+                              if (!imageUrl) return;
+                              try {
+                                const response = await fetch(imageUrl);
+                                const blob = await response.blob();
+                                const blobUrl = window.URL.createObjectURL(blob);
+                                const link = document.createElement('a');
+                                link.href = blobUrl;
+                                link.download = 'generated-image.png';
+                                link.click();
+                                window.URL.revokeObjectURL(blobUrl);
+                              } catch {
+                                // 如果 fetch 失败，回退到直接打开
+                                window.open(imageUrl, '_blank');
+                              }
                             }}
                             className="flex-1"
                           >
