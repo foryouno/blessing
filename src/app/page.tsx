@@ -104,6 +104,8 @@ export default function VideoGenerator() {
   const [avatarPrompt, setAvatarPrompt] = useState('');
   const [avatarVideoUrl, setAvatarVideoUrl] = useState<string | null>(null);
   const [avatarStep, setAvatarStep] = useState<'idle' | 'generating-audio' | 'generating-video' | 'completed'>('idle');
+  const [lipSyncEnabled, setLipSyncEnabled] = useState(true);
+  const [lipSyncIntensity, setLipSyncIntensity] = useState<'normal' | 'strong' | 'very-strong'>('normal');
   
   // 语音选项
   const voiceOptions = [
@@ -363,8 +365,25 @@ export default function VideoGenerator() {
       let videoDuration = Math.ceil(durationMinutes * 60);
       videoDuration = Math.max(5, Math.min(60, videoDuration));
 
+      // 根据对口型设置生成不同的提示词
+      let lipSyncPrompt = '';
+      if (lipSyncEnabled) {
+        switch (lipSyncIntensity) {
+          case 'very-strong':
+            lipSyncPrompt = '口型与语音完全同步，嘴唇动作清晰明显，每一个字都有对应的口型变化，口型夸张明显，唇部运动幅度大，表情丰富生动，眼神专注，语速适中，专业的播读风格。非常清晰的口型动作，每个音节都能看到嘴唇的开合变化；';
+            break;
+          case 'strong':
+            lipSyncPrompt = '口型与语音同步，嘴唇自然开合，口型动作明显，唇部运动清晰，表情丰富自然，眼神专注，语速适中，专业的播读风格。清晰的口型动作，自然的面部表情；';
+            break;
+          default:
+            lipSyncPrompt = '口型与语音同步，嘴唇自然开合，表情丰富自然，眼神专注，语速适中，专业的播读风格。清晰的口型动作，自然的面部表情；';
+        }
+      } else {
+        lipSyncPrompt = '表情自然，眼神专注，语速适中，专业的播读风格。自然的面部表情；';
+      }
+
       // 优化提示词：促进口型同步和自然的朗读效果
-      const enhancedPrompt = `一位专业的主播正在认真朗读，口型与语音同步，嘴唇自然开合，表情丰富自然，眼神专注，语速适中，专业的播读风格。清晰的口型动作，自然的面部表情，正面半身镜头，专业演播室背景。内容：${avatarPrompt}`;
+      const enhancedPrompt = `一位专业的主播正在认真朗读，${lipSyncPrompt}正面半身镜头，专业演播室背景，光线柔和，画质清晰。内容：${avatarPrompt}`;
 
       const videoResponse = await fetch('/api/generate-video', {
         method: 'POST',
@@ -1236,6 +1255,68 @@ export default function VideoGenerator() {
                         <p className="text-xs text-green-300">
                           ✨ 默认使用小荷女声，适合大部分场景
                         </p>
+                      </div>
+                    </Card>
+
+                    {/* 对口型设置 */}
+                    <Card className="p-4 bg-slate-700/50 border-slate-600">
+                      <h4 className="text-white font-medium mb-3">🎭 对口型设置</h4>
+                      
+                      <div className="space-y-4">
+                        {/* 对口型开关 */}
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <Label className="text-white text-sm font-medium">启用对口型</Label>
+                            <p className="text-xs text-slate-400 mt-1">让数字人的口型与语音同步</p>
+                          </div>
+                          <Switch
+                            checked={lipSyncEnabled}
+                            onCheckedChange={setLipSyncEnabled}
+                            disabled={isGenerating}
+                          />
+                        </div>
+
+                        {/* 对口型强度选择 - 仅在启用对口型时显示 */}
+                        {lipSyncEnabled && (
+                          <div className="space-y-2 pt-2 border-t border-slate-600">
+                            <Label className="text-white text-sm font-medium">对口型强度</Label>
+                            <Select value={lipSyncIntensity} onValueChange={(value: 'normal' | 'strong' | 'very-strong') => setLipSyncIntensity(value)} disabled={isGenerating}>
+                              <SelectTrigger className="bg-slate-800 border-slate-600 text-white">
+                                <SelectValue placeholder="选择对口型强度" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-slate-800 border-slate-600">
+                                <SelectItem value="normal" className="text-white hover:bg-slate-700">
+                                  <div className="flex flex-col">
+                                    <span>普通</span>
+                                    <span className="text-xs text-slate-400">自然的口型动作</span>
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="strong" className="text-white hover:bg-slate-700">
+                                  <div className="flex flex-col">
+                                    <span>明显</span>
+                                    <span className="text-xs text-slate-400">清晰的口型动作</span>
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="very-strong" className="text-white hover:bg-slate-700">
+                                  <div className="flex flex-col">
+                                    <span>夸张</span>
+                                    <span className="text-xs text-slate-400">夸张的口型动作</span>
+                                  </div>
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                            
+                            <div className="mt-3 p-3 bg-green-500/10 rounded-lg border border-green-500/30">
+                              <p className="text-xs text-green-300">
+                                {lipSyncIntensity === 'very-strong' 
+                                  ? '✨ 夸张模式：口型动作会非常明显，适合教育类视频' 
+                                  : lipSyncIntensity === 'strong' 
+                                    ? '✨ 明显模式：口型动作清晰可见，适合大多数场景' 
+                                    : '✨ 普通模式：自然的口型动作，看起来更真实'}
+                              </p>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </Card>
                   </div>
