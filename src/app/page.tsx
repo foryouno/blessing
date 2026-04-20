@@ -1317,6 +1317,29 @@ export default function VideoGenerator() {
                             </div>
                           </div>
                         )}
+                        
+                        {/* 对口型生成按钮 */}
+                        <div className="pt-4 border-t border-slate-600">
+                          <Button
+                            onClick={handleAvatarGenerate}
+                            disabled={isGenerating || !avatarPrompt.trim()}
+                            className="w-full py-4 text-base bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {isGenerating ? (
+                              <span className="flex items-center gap-2">
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                {avatarStep === 'generating-audio' ? '正在生成语音...' : '正在生成视频...'}
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-2">
+                                <Sparkles className="w-4 h-4" />
+                                {lipSyncEnabled 
+                                  ? `生成对口型${avatarImageUrl ? '视频' : '语音'}` 
+                                  : `生成${avatarImageUrl ? '视频' : '语音'}`}
+                              </span>
+                            )}
+                          </Button>
+                        </div>
                       </div>
                     </Card>
                   </div>
