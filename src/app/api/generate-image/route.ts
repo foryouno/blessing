@@ -3,7 +3,7 @@ import { ImageGenerationClient, Config, HeaderUtils } from 'coze-coding-dev-sdk'
 
 export async function POST(request: NextRequest) {
   try {
-    const { prompt, size = '2K', model = 'doubao-seedream-5-0-260128' } = await request.json();
+    const { prompt } = await request.json();
     
     if (!prompt) {
       return NextResponse.json(
@@ -18,8 +18,8 @@ export async function POST(request: NextRequest) {
 
     const response = await client.generate({
       prompt,
-      size,
-      model,
+      size: '2K',
+      model: 'doubao-seedream-5-0-260128',
       watermark: true,
       optimizePromptMode: 'standard'
     });
