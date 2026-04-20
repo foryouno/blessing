@@ -31,6 +31,7 @@ interface ImageHistoryItem {
   imageUrl: string;
   prompt: string;
   size: string;
+  ratio: string;
   model: string;
   createdAt: string;
 }
@@ -120,8 +121,8 @@ export default function VideoGenerator() {
   const [imagePrompt, setImagePrompt] = useState('');
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
-  const [imageSize, setImageSize] = useState('2K');
   const [imageModel, setImageModel] = useState('doubao-seedream-5-0-260128');
+  const [imageRatio, setImageRatio] = useState('16:9');
   
   // 语音选项
   const voiceOptions = [
@@ -453,6 +454,22 @@ export default function VideoGenerator() {
     setImageUrl(null);
 
     try {
+      // 根据比例选择合适的尺寸
+      let selectedSize: string;
+      switch (imageRatio) {
+        case '9:16':
+          selectedSize = '1024x1024';
+          break;
+        case '1:1':
+          selectedSize = '1024x1024';
+          break;
+        case '4:3':
+          selectedSize = '2K';
+          break;
+        default:
+          selectedSize = '2K';
+      }
+
       const response = await fetch('/api/generate-image', {
         method: 'POST',
         headers: {
@@ -460,7 +477,7 @@ export default function VideoGenerator() {
         },
         body: JSON.stringify({
           prompt: imagePrompt,
-          size: imageSize,
+          size: selectedSize,
           model: imageModel
         }),
       });
@@ -478,7 +495,8 @@ export default function VideoGenerator() {
           id: Date.now().toString(),
           imageUrl: data.imageUrls[0],
           prompt: imagePrompt,
-          size: imageSize,
+          size: selectedSize,
+          ratio: imageRatio,
           model: imageModel,
           createdAt: new Date().toISOString()
         });
@@ -1452,7 +1470,7 @@ export default function VideoGenerator() {
                                     {item.prompt}
                                   </p>
                                   <div className="flex items-center justify-between text-xs text-slate-500 mb-3">
-                                    <span>{item.size}</span>
+                                    <span>{item.ratio} · {item.size}</span>
                                     <span>
                                       {new Date(item.createdAt).toLocaleDateString('zh-CN', {
                                         month: 'short',
@@ -1532,24 +1550,27 @@ export default function VideoGenerator() {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* 图片尺寸 */}
+                      {/* 图片比例 */}
                       <div>
                         <Label className="text-white text-sm font-medium mb-2 block">
-                          图片尺寸
+                          图片比例
                         </Label>
-                        <Select value={imageSize} onValueChange={setImageSize} disabled={isGeneratingImage}>
+                        <Select value={imageRatio} onValueChange={setImageRatio} disabled={isGeneratingImage}>
                           <SelectTrigger className="bg-slate-800 border-slate-600 text-white">
-                            <SelectValue placeholder="选择尺寸" />
+                            <SelectValue placeholder="选择比例" />
                           </SelectTrigger>
                           <SelectContent className="bg-slate-800 border-slate-600">
-                            <SelectItem value="2K" className="text-white hover:bg-slate-700">
-                              2K (2560x1440)
+                            <SelectItem value="16:9" className="text-white hover:bg-slate-700">
+                              16:9 (横屏)
                             </SelectItem>
-                            <SelectItem value="4K" className="text-white hover:bg-slate-700">
-                              4K (3840x2160)
+                            <SelectItem value="9:16" className="text-white hover:bg-slate-700">
+                              9:16 (竖屏)
                             </SelectItem>
-                            <SelectItem value="1024x1024" className="text-white hover:bg-slate-700">
-                              1024x1024 (正方形)
+                            <SelectItem value="1:1" className="text-white hover:bg-slate-700">
+                              1:1 (正方形)
+                            </SelectItem>
+                            <SelectItem value="4:3" className="text-white hover:bg-slate-700">
+                              4:3 (传统)
                             </SelectItem>
                           </SelectContent>
                         </Select>
