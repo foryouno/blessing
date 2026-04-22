@@ -264,6 +264,11 @@ export default function VideoGenerator() {
       if (data.script) {
         setPrompt(data.script);
         setShowScriptGenerator(false);
+        
+        // 自动生成视频！
+        setTimeout(() => {
+          handleGenerate();
+        }, 500);
       }
     } catch {
       setError('生成剧本时发生错误');
