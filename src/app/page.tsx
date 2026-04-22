@@ -929,12 +929,16 @@ export default function VideoGenerator() {
                         disabled={isGenerating}
                       >
                         <Sparkles className="w-4 h-4 mr-2" />
-                        🎬 Seedance 2 配套工具 - 一键写好剧本
+                        ✨ Seedance 2 AI - 一键写好剧本
                       </Button>
                       
                       {showScriptGenerator && (
                         <Card className="mt-3 p-4 bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/30">
                           <div className="space-y-4">
+                            <div className="flex items-center gap-2 text-amber-300 text-sm">
+                              <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></span>
+                              由 Seedance 2 大模型强力驱动
+                            </div>
                             <div>
                               <Label className="text-amber-200 text-sm font-medium mb-2 block">
                                 📝 剧本主题
@@ -973,12 +977,12 @@ export default function VideoGenerator() {
                               {isGeneratingScript ? (
                                 <>
                                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                  正在创作剧本...
+                                  Seedance 2 正在创作剧本...
                                 </>
                               ) : (
                                 <>
                                   <Sparkles className="w-4 h-4 mr-2" />
-                                  一键生成剧本
+                                  Seedance 2 一键生成
                                 </>
                               )}
                             </Button>
