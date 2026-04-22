@@ -1009,6 +1009,23 @@ export default function VideoGenerator() {
                               </Select>
                             </div>
                             
+                            <div>
+                              <Label className="text-amber-200 text-sm font-medium mb-2 block">
+                                📐 视频宽高比
+                              </Label>
+                              <Select value={ratio} onValueChange={setRatio} disabled={isGeneratingScript}>
+                                <SelectTrigger className="bg-slate-800/50 border-slate-600 text-white">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-slate-800 border-slate-600">
+                                  <SelectItem value="16:9">16:9（横屏）</SelectItem>
+                                  <SelectItem value="9:16">9:16（竖屏）</SelectItem>
+                                  <SelectItem value="1:1">1:1（方形）</SelectItem>
+                                  <SelectItem value="4:3">4:3（传统）</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            
                             {/* 多视频生成选项 */}
                             <div className="space-y-3">
                               <div className="flex items-center gap-2">
