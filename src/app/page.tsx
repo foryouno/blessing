@@ -52,6 +52,12 @@ export default function VideoGenerator() {
   const [imageHistory, setImageHistory] = useState<ImageHistoryItem[]>([]);
   const [showTemplates, setShowTemplates] = useState(false);
   
+  // 剧本生成相关状态
+  const [scriptTopic, setScriptTopic] = useState('');
+  const [scriptStyle, setScriptStyle] = useState('professional');
+  const [isGeneratingScript, setIsGeneratingScript] = useState(false);
+  const [showScriptGenerator, setShowScriptGenerator] = useState(false);
+  
   // 强制重新编译的注释
 
   const promptTemplates = [
@@ -223,6 +229,47 @@ export default function VideoGenerator() {
     setGenerateAudio(item.generateAudio);
     setModel(item.model);
     setShowHistory(false);
+  };
+
+  // 一键生成剧本功能
+  const handleGenerateScript = async () => {
+    if (!scriptTopic.trim()) {
+      setError('请先输入剧本主题');
+      return;
+    }
+
+    setIsGeneratingScript(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/generate-script', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          topic: scriptTopic,
+          style: scriptStyle,
+          duration: duration,
+          language: 'zh'
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || '生成剧本失败');
+      }
+
+      if (data.script) {
+        setPrompt(data.script);
+        setShowScriptGenerator(false);
+      }
+    } catch {
+      setError('生成剧本时发生错误');
+    } finally {
+      setIsGeneratingScript(false);
+    }
   };
 
   const handleImageUpload = async (file: File, type: 'first' | 'last') => {
@@ -871,6 +918,74 @@ export default function VideoGenerator() {
                         </div>
                       </div>
                     )}
+                    
+                    {/* Seedance 2 一键写好剧本功能 */}
+                    <div className="mb-3">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setShowScriptGenerator(!showScriptGenerator)}
+                        className="w-full bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 text-amber-300 border border-amber-500/30"
+                        disabled={isGenerating}
+                      >
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        🎬 Seedance 2 配套工具 - 一键写好剧本
+                      </Button>
+                      
+                      {showScriptGenerator && (
+                        <Card className="mt-3 p-4 bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/30">
+                          <div className="space-y-4">
+                            <div>
+                              <Label className="text-amber-200 text-sm font-medium mb-2 block">
+                                📝 剧本主题
+                              </Label>
+                              <Textarea
+                                placeholder="输入你想要的视频主题，例如：介绍人工智能的发展历程"
+                                value={scriptTopic}
+                                onChange={(e) => setScriptTopic(e.target.value)}
+                                className="min-h-20 bg-slate-800/50 border-slate-600 text-white placeholder:text-gray-500"
+                                disabled={isGeneratingScript}
+                              />
+                            </div>
+                            
+                            <div>
+                              <Label className="text-amber-200 text-sm font-medium mb-2 block">
+                                🎨 剧本风格
+                              </Label>
+                              <Select value={scriptStyle} onValueChange={setScriptStyle} disabled={isGeneratingScript}>
+                                <SelectTrigger className="bg-slate-800/50 border-slate-600 text-white">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-slate-800 border-slate-600">
+                                  <SelectItem value="professional">专业严谨</SelectItem>
+                                  <SelectItem value="funny">幽默风趣</SelectItem>
+                                  <SelectItem value="emotional">情感共鸣</SelectItem>
+                                  <SelectItem value="concise">简洁明了</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            
+                            <Button
+                              onClick={handleGenerateScript}
+                              disabled={isGeneratingScript || !scriptTopic.trim()}
+                              className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white"
+                            >
+                              {isGeneratingScript ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                  正在创作剧本...
+                                </>
+                              ) : (
+                                <>
+                                  <Sparkles className="w-4 h-4 mr-2" />
+                                  一键生成剧本
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        </Card>
+                      )}
+                    </div>
                     
                     <Textarea
                       ref={textareaRef}
