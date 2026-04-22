@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -57,6 +58,12 @@ export default function VideoGenerator() {
   const [scriptStyle, setScriptStyle] = useState('professional');
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
   const [showScriptGenerator, setShowScriptGenerator] = useState(false);
+  
+  // 多视频生成相关状态
+  const [generateMultipleVideos, setGenerateMultipleVideos] = useState(false);
+  const [videoCount, setVideoCount] = useState(3);
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
+  const [isGeneratingMultiple, setIsGeneratingMultiple] = useState(false);
   
   // 强制重新编译的注释
 
@@ -251,7 +258,9 @@ export default function VideoGenerator() {
           topic: scriptTopic,
           style: scriptStyle,
           duration: duration,
-          language: 'zh'
+          language: 'zh',
+          videoCount: generateMultipleVideos ? videoCount : 1,
+          isMultiVideo: generateMultipleVideos
         }),
       });
 
@@ -261,7 +270,31 @@ export default function VideoGenerator() {
         throw new Error(data.error || '生成剧本失败');
       }
 
-      if (data.script) {
+      if (generateMultipleVideos && data.scripts && data.scripts.length > 0) {
+        // 多视频模式：逐个生成视频
+        setIsGeneratingMultiple(true);
+        setShowScriptGenerator(false);
+        
+        for (let i = 0; i < data.scripts.length; i++) {
+          setCurrentVideoIndex(i + 1);
+          setPrompt(data.scripts[i]);
+          
+          // 等待500ms确保状态更新
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // 生成视频
+          await handleGenerate();
+          
+          // 如果不是最后一个视频，等待一下再继续
+          if (i < data.scripts.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
+        }
+        
+        setIsGeneratingMultiple(false);
+        setCurrentVideoIndex(0);
+      } else if (data.script) {
+        // 单视频模式
         setPrompt(data.script);
         setShowScriptGenerator(false);
         
@@ -272,6 +305,8 @@ export default function VideoGenerator() {
       }
     } catch {
       setError('生成剧本时发生错误');
+      setIsGeneratingMultiple(false);
+      setCurrentVideoIndex(0);
     } finally {
       setIsGeneratingScript(false);
     }
@@ -974,12 +1009,51 @@ export default function VideoGenerator() {
                               </Select>
                             </div>
                             
+                            {/* 多视频生成选项 */}
+                            <div className="space-y-3">
+                              <div className="flex items-center gap-2">
+                                <Checkbox
+                                  id="multiple-videos"
+                                  checked={generateMultipleVideos}
+                                  onCheckedChange={(checked) => setGenerateMultipleVideos(checked as boolean)}
+                                  disabled={isGeneratingScript}
+                                />
+                                <Label htmlFor="multiple-videos" className="text-amber-200 text-sm">
+                                  🎬 生成多个12秒连贯视频
+                                </Label>
+                              </div>
+                              
+                              {generateMultipleVideos && (
+                                <div>
+                                  <Label className="text-amber-200 text-sm font-medium mb-2 block">
+                                    📹 视频数量
+                                  </Label>
+                                  <Select value={videoCount.toString()} onValueChange={(value) => setVideoCount(parseInt(value))} disabled={isGeneratingScript}>
+                                    <SelectTrigger className="bg-slate-800/50 border-slate-600 text-white">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-slate-800 border-slate-600">
+                                      <SelectItem value="2">2个视频</SelectItem>
+                                      <SelectItem value="3">3个视频</SelectItem>
+                                      <SelectItem value="4">4个视频</SelectItem>
+                                      <SelectItem value="5">5个视频</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              )}
+                            </div>
+                            
                             <Button
                               onClick={handleGenerateScript}
-                              disabled={isGeneratingScript || !scriptTopic.trim()}
+                              disabled={isGeneratingScript || isGeneratingMultiple || !scriptTopic.trim()}
                               className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white"
                             >
-                              {isGeneratingScript ? (
+                              {isGeneratingMultiple ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                  正在生成第 {currentVideoIndex}/{videoCount} 个视频...
+                                </>
+                              ) : isGeneratingScript ? (
                                 <>
                                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                                   Seedance 2 正在创作剧本...
@@ -987,7 +1061,7 @@ export default function VideoGenerator() {
                               ) : (
                                 <>
                                   <Sparkles className="w-4 h-4 mr-2" />
-                                  Seedance 2 一键生成
+                                  {generateMultipleVideos ? `生成 ${videoCount} 个12秒视频` : 'Seedance 2 一键生成'}
                                 </>
                               )}
                             </Button>

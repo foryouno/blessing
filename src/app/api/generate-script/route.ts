@@ -10,7 +10,9 @@ export async function POST(request: NextRequest) {
       topic,
       style = 'professional',
       duration = 10,
-      language = 'zh'
+      language = 'zh',
+      videoCount = 1,
+      isMultiVideo = false
     } = await request.json();
     
     if (!topic) {
@@ -27,19 +29,55 @@ export async function POST(request: NextRequest) {
     // 根据时长计算分镜数量（每2-2.5秒一个分镜）
     const shotCount = Math.max(3, Math.min(8, Math.ceil(duration / 2.5)));
     
-    // 生成多个分镜的剧本
-    const script = language === 'zh' 
-      ? generateMultiShotScriptZh(topic, styleDescriptions[style as keyof typeof styleDescriptions] || '专业严谨', duration, shotCount)
-      : generateMultiShotScriptEn(topic, style, duration, shotCount);
+    if (isMultiVideo && videoCount > 1) {
+      // 多视频模式：生成多个连贯的剧本
+      const scripts = [];
+      for (let i = 0; i < videoCount; i++) {
+        const videoScript = language === 'zh'
+          ? generateMultiShotScriptZh(
+              `${topic}（第${i + 1}集）`,
+              styleDescriptions[style as keyof typeof styleDescriptions] || '专业严谨',
+              12,  // 固定12秒
+              shotCount,
+              i + 1,
+              videoCount
+            )
+          : generateMultiShotScriptEn(
+              `${topic} (Part ${i + 1})`,
+              style,
+              12,  // 固定12秒
+              shotCount,
+              i + 1,
+              videoCount
+            );
+        scripts.push(videoScript);
+      }
+      
+      return NextResponse.json({ 
+        scripts,
+        success: true,
+        model: 'doubao-seed-2-0-pro-260215',
+        modelName: 'Seedance 2 Pro',
+        videoCount: videoCount,
+        isMultiVideo: true,
+        note: '当前使用智能模板生成，LLM 调用需配置 SDK'
+      });
+    } else {
+      // 单视频模式
+      const script = language === 'zh' 
+        ? generateMultiShotScriptZh(topic, styleDescriptions[style as keyof typeof styleDescriptions] || '专业严谨', duration, shotCount)
+        : generateMultiShotScriptEn(topic, style, duration, shotCount);
 
-    return NextResponse.json({ 
-      script,
-      success: true,
-      model: 'doubao-seed-2-0-pro-260215',
-      modelName: 'Seedance 2 Pro',
-      shotCount: shotCount,
-      note: '当前使用智能模板生成，LLM 调用需配置 SDK'
-    });
+      return NextResponse.json({ 
+        script,
+        success: true,
+        model: 'doubao-seed-2-0-pro-260215',
+        modelName: 'Seedance 2 Pro',
+        shotCount: shotCount,
+        isMultiVideo: false,
+        note: '当前使用智能模板生成，LLM 调用需配置 SDK'
+      });
+    }
   } catch (error: unknown) {
     console.error('Script generation error:', error);
     const apiError = error as { statusCode?: number; response?: unknown; message?: string };
@@ -51,14 +89,22 @@ export async function POST(request: NextRequest) {
 }
 
 // 中文多镜头剧本生成
-function generateMultiShotScriptZh(topic: string, style: string, duration: number, shotCount: number): string {
+function generateMultiShotScriptZh(
+  topic: string, 
+  style: string, 
+  duration: number, 
+  shotCount: number,
+  partNumber?: number,
+  totalParts?: number
+): string {
   const shots = [];
   
   // 分镜1：开场
+  const partInfo = partNumber && totalParts ? `（第${partNumber}/${totalParts}集）` : '';
   shots.push(`【分镜 1 - 开场】
 ⏱️ 时长：0-${Math.round(duration * 0.2)}秒
-📝 场景描述：${topic}主题精彩呈现
-🎤 台词/旁白：大家好！欢迎来到今天的视频分享。今天我们要聊的主题是——${topic}。这是一个非常值得探讨的话题，相信你一定会感兴趣！
+📝 场景描述：${topic}主题精彩呈现${partInfo}
+🎤 台词/旁白：大家好！欢迎来到今天的视频分享${partInfo}。今天我们要聊的主题是——${topic}。这是一个非常值得探讨的话题，相信你一定会感兴趣！
 🎬 画面提示：
 - 醒目主题画面
 - 配合动感音乐
@@ -89,28 +135,42 @@ function generateMultiShotScriptZh(topic: string, style: string, duration: numbe
 
   // 分镜n：结尾
   const endStartTime = Math.round(duration * 0.8);
+  const closingText = totalParts && partNumber === totalParts 
+    ? '希望通过今天这个系列的分享，能让你对' + topic + '有一个全新的认识。如果你觉得有收获，别忘了点赞分享哦！感谢观看，我们下期再见！'
+    : partNumber && totalParts 
+      ? '希望通过今天这一集的分享，能让你对' + topic + '有更多了解。下一集更精彩，记得关注哦！'
+      : '希望通过今天这个简短的分享，能让你对' + topic + '有一个全新的认识。如果你觉得有收获，别忘了点赞分享哦！感谢观看，我们下期再见！';
+  
   shots.push(`【分镜 ${shotCount} - 结尾】
 ⏱️ 时长：${endStartTime}-${duration}秒
 📝 场景描述：${topic}的总结与展望
-🎤 台词/旁白：希望通过今天这个简短的分享，能让你对${topic}有一个全新的认识。如果你觉得有收获，别忘了点赞分享哦！感谢观看，我们下期再见！
+🎤 台词/旁白：${closingText}
 🎬 画面提示：
 - 总结画面
 - 配合呼吁性文字
-- 订阅引导
+- ${totalParts && partNumber !== totalParts ? '下集预告' : '订阅引导'}
 - 渐黑收尾`);
 
-  return shots.join('\n\n') + `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📋 总览：${shotCount}个分镜，总时长${duration}秒\n🎨 风格：${style}\n🤖 由 Seedance 2 大模型 doubao-seed-2-0-pro-260215 生成（智能模板）`;
+  return shots.join('\n\n') + `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📋 总览：${shotCount}个分镜，总时长${duration}秒\n🎨 风格：${style}${partInfo}\n🤖 由 Seedance 2 大模型 doubao-seed-2-0-pro-260215 生成（智能模板）`;
 }
 
 // 英文多镜头剧本生成
-function generateMultiShotScriptEn(topic: string, style: string, duration: number, shotCount: number): string {
+function generateMultiShotScriptEn(
+  topic: string, 
+  style: string, 
+  duration: number, 
+  shotCount: number,
+  partNumber?: number,
+  totalParts?: number
+): string {
   const shots = [];
   
   // Shot 1: Opening
+  const partInfo = partNumber && totalParts ? ` (Part ${partNumber}/${totalParts})` : '';
   shots.push(`[Shot 1 - Opening]
 ⏱️ Duration: 0-${Math.round(duration * 0.2)}s
-📝 Scene Description: Wonderful presentation of ${topic}
-🎤 Lines/Narration: Hello everyone! Welcome to today's video sharing. The topic we're going to talk about today is - ${topic}. This is a very worthwhile topic to explore, and I believe you will find it interesting!
+📝 Scene Description: Wonderful presentation of ${topic}${partInfo}
+🎤 Lines/Narration: Hello everyone! Welcome to today's video sharing${partInfo}. The topic we're going to talk about today is - ${topic}. This is a very worthwhile topic to explore, and I believe you will find it interesting!
 🎬 Visual Cues:
 - Eye-catching title screen
 - With dynamic music
@@ -141,15 +201,21 @@ function generateMultiShotScriptEn(topic: string, style: string, duration: numbe
 
   // Shot n: Closing
   const endStartTime = Math.round(duration * 0.8);
+  const closingText = totalParts && partNumber === totalParts 
+    ? 'I hope through this series of sharing today, you can have a brand new understanding of ' + topic + '. If you find it helpful, don\'t forget to like and share! Thanks for watching, see you next time!'
+    : partNumber && totalParts 
+      ? 'I hope through this episode today, you can learn more about ' + topic + '. Next episode will be even more exciting, remember to follow!'
+      : 'I hope through this short sharing today, you can have a brand new understanding of ' + topic + '. If you find it helpful, don\'t forget to like and share! Thanks for watching, see you next time!';
+  
   shots.push(`[Shot ${shotCount} - Closing]
 ⏱️ Duration: ${endStartTime}-${duration}s
 📝 Scene Description: Summary and outlook of ${topic}
-🎤 Lines/Narration: I hope through this short sharing today, you can have a brand new understanding of ${topic}. If you find it helpful, don't forget to like and share! Thanks for watching, see you next time!
+🎤 Lines/Narration: ${closingText}
 🎬 Visual Cues:
 - Summary screen
 - With call-to-action text
-- Subscribe guide
+- ${totalParts && partNumber !== totalParts ? 'Next episode preview' : 'Subscribe guide'}
 - Fade to black`);
 
-  return shots.join('\n\n') + `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📋 Overview: ${shotCount} shots, total duration ${duration}s\n🎨 Style: ${style}\n🤖 Generated by Seedance 2 Model doubao-seed-2-0-pro-260215 (Smart Template)`;
+  return shots.join('\n\n') + `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📋 Overview: ${shotCount} shots, total duration ${duration}s\n🎨 Style: ${style}${partInfo}\n🤖 Generated by Seedance 2 Model doubao-seed-2-0-pro-260215 (Smart Template)`;
 }
