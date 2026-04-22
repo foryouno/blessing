@@ -275,6 +275,10 @@ export default function VideoGenerator() {
         setIsGeneratingMultiple(true);
         setShowScriptGenerator(false);
         
+        // 保存原始时长，强制设置为12秒
+        const originalDuration = duration;
+        setDuration(12);
+        
         for (let i = 0; i < data.scripts.length; i++) {
           setCurrentVideoIndex(i + 1);
           setPrompt(data.scripts[i]);
@@ -291,6 +295,8 @@ export default function VideoGenerator() {
           }
         }
         
+        // 恢复原始时长
+        setDuration(originalDuration);
         setIsGeneratingMultiple(false);
         setCurrentVideoIndex(0);
       } else if (data.script) {
