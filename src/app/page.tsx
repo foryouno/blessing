@@ -2025,7 +2025,19 @@ export default function VideoGenerator() {
 
                   <div>
                     <Label className="text-white text-sm font-medium mb-2 block">生成模型</Label>
-                    <Select value={model} onValueChange={setModel} disabled={isGenerating}>
+                    <Select 
+                      value={model} 
+                      onValueChange={(newModel) => {
+                        setModel(newModel);
+                        // 当选择 Seedance 2 时，设置默认推荐参数
+                        if (newModel === 'doubao-seedance-2-0-pro-260215') {
+                          setDuration(12); // Seedance 2 推荐 12 秒
+                          setRatio('16:9'); // 推荐 16:9 宽高比
+                          setGenerateAudio(true); // 推荐开启音频
+                        }
+                      }} 
+                      disabled={isGenerating}
+                    >
                       <SelectTrigger className="bg-slate-700/50 border-slate-600 text-white">
                         <SelectValue />
                       </SelectTrigger>
