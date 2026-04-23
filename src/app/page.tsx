@@ -164,8 +164,13 @@ export default function VideoGenerator() {
     }
   }, []);
 
-  const saveToHistory = (item: VideoHistoryItem) => {
-    const newHistory = [item, ...history].slice(0, 50);
+  const saveToHistory = (item: Omit<VideoHistoryItem, 'id' | 'createdAt'>) => {
+    const newItem: VideoHistoryItem = {
+      ...item,
+      id: Date.now().toString(),
+      createdAt: new Date().toISOString()
+    };
+    const newHistory = [newItem, ...history].slice(0, 50);
     setHistory(newHistory);
     localStorage.setItem('videoHistory', JSON.stringify(newHistory));
   };
@@ -277,21 +282,59 @@ export default function VideoGenerator() {
         
         // 保存原始时长，强制设置为12秒
         const originalDuration = duration;
-        setDuration(12);
+        const currentRatio = ratio;
+        const currentModel = model;
+        const currentGenerateAudio = generateAudio;
         
         for (let i = 0; i < data.scripts.length; i++) {
           setCurrentVideoIndex(i + 1);
-          setPrompt(data.scripts[i]);
+          const currentPrompt = data.scripts[i];
           
-          // 等待500ms确保状态更新
-          await new Promise(resolve => setTimeout(resolve, 500));
-          
-          // 生成视频
-          await handleGenerate();
+          try {
+            // 直接调用视频生成 API，避免 handleGenerate 的状态冲突
+            const response = await fetch('/api/generate-video', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                prompt: currentPrompt,
+                duration: 12,
+                ratio: currentRatio,
+                generateAudio: currentGenerateAudio,
+                model: currentModel
+              }),
+            });
+
+            const responseData = await response.json();
+
+            if (!response.ok) {
+              throw new Error(responseData.error || `第${i + 1}个视频生成失败`);
+            }
+
+            // 保存到历史记录
+            saveToHistory({
+              videoUrl: responseData.videoUrl,
+              prompt: currentPrompt,
+              duration: 12,
+              ratio: currentRatio,
+              generateAudio: currentGenerateAudio,
+              model: currentModel,
+            });
+            
+            // 更新最后一个视频的 URL
+            if (i === data.scripts.length - 1) {
+              setVideoUrl(responseData.videoUrl);
+              setPrompt(currentPrompt);
+            }
+            
+          } catch (err) {
+            console.error(`第${i + 1}个视频生成失败:`, err);
+          }
           
           // 如果不是最后一个视频，等待一下再继续
           if (i < data.scripts.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            await new Promise(resolve => setTimeout(resolve, 3000));
           }
         }
         
@@ -682,7 +725,6 @@ export default function VideoGenerator() {
         setVideoUrl(data.videoUrl);
         
         saveToHistory({
-          id: Date.now().toString(),
           videoUrl: data.videoUrl,
           prompt,
           duration,
@@ -691,7 +733,6 @@ export default function VideoGenerator() {
           model,
           firstFrameUrl: firstFrameUrl || undefined,
           lastFrameUrl: lastFrameUrl || undefined,
-          createdAt: new Date().toISOString(),
         });
       } else {
         // 否则生成视频
@@ -744,7 +785,6 @@ export default function VideoGenerator() {
         setVideoUrl(data.videoUrl);
         
         saveToHistory({
-          id: Date.now().toString(),
           videoUrl: data.videoUrl,
           prompt,
           duration,
@@ -753,7 +793,6 @@ export default function VideoGenerator() {
           model,
           firstFrameUrl: firstFrameUrl || undefined,
           lastFrameUrl: lastFrameUrl || undefined,
-          createdAt: new Date().toISOString(),
         });
       }
     } catch {
