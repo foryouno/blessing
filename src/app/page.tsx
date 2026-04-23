@@ -41,7 +41,7 @@ export default function VideoGenerator() {
   const [duration, setDuration] = useState(5);
   const [ratio, setRatio] = useState('16:9');
   const [generateAudio, setGenerateAudio] = useState(true);
-  const [model, setModel] = useState('doubao-seedance-2-0-pro');
+  const [model, setModel] = useState('doubao-seedance-1-5-pro-251215');
   const [isGenerating, setIsGenerating] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
