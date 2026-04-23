@@ -217,9 +217,9 @@ export default function VideoGenerator() {
     const charCount = cleanText.length;
     const wordsPerMinute = 160;
     const durationMinutes = charCount / wordsPerMinute;
-    // 转换为秒，最小 5 秒，最大 12 秒（受模型限制）
+    // 转换为秒，最小 5 秒，最大 15 秒（受模型限制）
     let durationSeconds = Math.ceil(durationMinutes * 60);
-    durationSeconds = Math.max(5, Math.min(12, durationSeconds));
+    durationSeconds = Math.max(5, Math.min(15, durationSeconds));
     return durationSeconds;
   };
 
@@ -1999,7 +1999,7 @@ export default function VideoGenerator() {
                             }
                           }}
                           min={5}
-                          max={12}
+                          max={15}
                           step={1}
                           disabled={isGenerating || (autoDuration && activeTab === 'avatar')}
                           className={`${autoDuration && activeTab === 'avatar' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
@@ -2031,7 +2031,7 @@ export default function VideoGenerator() {
                         setModel(newModel);
                         // 当选择 Seedance 2 时，设置默认推荐参数
                         if (newModel === 'doubao-seedance-2-0-pro-260215') {
-                          setDuration(12); // Seedance 2 推荐 12 秒
+                          setDuration(15); // Seedance 2 推荐 15 秒
                           setRatio('16:9'); // 推荐 16:9 宽高比
                           setGenerateAudio(true); // 推荐开启音频
                         }
