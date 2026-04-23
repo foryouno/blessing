@@ -167,12 +167,15 @@ export default function VideoGenerator() {
   const saveToHistory = (item: Omit<VideoHistoryItem, 'id' | 'createdAt'>) => {
     const newItem: VideoHistoryItem = {
       ...item,
-      id: Date.now().toString(),
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       createdAt: new Date().toISOString()
     };
-    const newHistory = [newItem, ...history].slice(0, 50);
-    setHistory(newHistory);
-    localStorage.setItem('videoHistory', JSON.stringify(newHistory));
+    // 使用函数式更新确保状态正确合并
+    setHistory(prevHistory => {
+      const newHistory = [newItem, ...prevHistory].slice(0, 50);
+      localStorage.setItem('videoHistory', JSON.stringify(newHistory));
+      return newHistory;
+    });
   };
 
   const saveToImageHistory = (item: ImageHistoryItem) => {
@@ -285,12 +288,20 @@ export default function VideoGenerator() {
         const currentRatio = ratio;
         const currentModel = model;
         const currentGenerateAudio = generateAudio;
+        const scriptsToGenerate = data.scripts;
+        const generatedVideoUrls: string[] = [];
         
-        for (let i = 0; i < data.scripts.length; i++) {
+        console.log('====== 多视频生成开始 ======');
+        console.log('剧本数量:', scriptsToGenerate.length);
+        console.log('剧本内容:', scriptsToGenerate);
+        
+        for (let i = 0; i < scriptsToGenerate.length; i++) {
+          console.log('--- 开始生成第', i + 1, '个视频 ---');
           setCurrentVideoIndex(i + 1);
-          const currentPrompt = data.scripts[i];
+          const currentPrompt = scriptsToGenerate[i];
           
           try {
+            console.log('调用视频生成 API...');
             // 直接调用视频生成 API，避免 handleGenerate 的状态冲突
             const response = await fetch('/api/generate-video', {
               method: 'POST',
@@ -306,13 +317,20 @@ export default function VideoGenerator() {
               }),
             });
 
+            console.log('API 响应状态:', response.status);
             const responseData = await response.json();
+            console.log('API 响应数据:', responseData);
 
             if (!response.ok) {
+              console.error('第', i + 1, '个视频生成失败:', responseData);
               throw new Error(responseData.error || `第${i + 1}个视频生成失败`);
             }
 
+            console.log('第', i + 1, '个视频生成成功! URL:', responseData.videoUrl);
+            generatedVideoUrls.push(responseData.videoUrl);
+
             // 保存到历史记录
+            console.log('保存到历史记录...');
             saveToHistory({
               videoUrl: responseData.videoUrl,
               prompt: currentPrompt,
@@ -322,21 +340,26 @@ export default function VideoGenerator() {
               model: currentModel,
             });
             
-            // 更新最后一个视频的 URL
-            if (i === data.scripts.length - 1) {
-              setVideoUrl(responseData.videoUrl);
-              setPrompt(currentPrompt);
-            }
+            // 更新最后一个视频的 URL 到主界面
+            setVideoUrl(responseData.videoUrl);
+            setPrompt(currentPrompt);
             
           } catch (err) {
             console.error(`第${i + 1}个视频生成失败:`, err);
           }
           
           // 如果不是最后一个视频，等待一下再继续
-          if (i < data.scripts.length - 1) {
+          if (i < scriptsToGenerate.length - 1) {
+            console.log('等待3秒后生成下一个视频...');
             await new Promise(resolve => setTimeout(resolve, 3000));
           }
         }
+        
+        console.log('====== 所有视频生成完成 ======');
+        console.log('生成的视频 URL 列表:', generatedVideoUrls);
+        
+        // 显示完成提示
+        alert(`✅ 所有 ${generatedVideoUrls.length} 个视频已生成完成！\n\n请查看历史记录查看所有生成的视频。`);
         
         // 恢复原始时长
         setDuration(originalDuration);
