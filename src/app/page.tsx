@@ -41,7 +41,7 @@ export default function VideoGenerator() {
   const [duration, setDuration] = useState(5);
   const [ratio, setRatio] = useState('16:9');
   const [generateAudio, setGenerateAudio] = useState(true);
-  const [model, setModel] = useState('doubao-seedance-1-5-pro-251215');
+  const [model, setModel] = useState('doubao-seedance-2.0-pro');
   const [isGenerating, setIsGenerating] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -2029,9 +2029,9 @@ export default function VideoGenerator() {
                       value={model} 
                       onValueChange={(newModel) => {
                         setModel(newModel);
-                        // 当选择 Seedance 2 时，设置默认推荐参数
-                        if (newModel === 'doubao-seedance-2-0-pro') {
-                          setDuration(15); // Seedance 2 推荐 15 秒
+                        // 当选择 Seedance 2.0 时，设置默认推荐参数
+                        if (newModel === 'doubao-seedance-2.0-pro') {
+                          setDuration(15); // Seedance 2.0 推荐 15 秒
                           setRatio('16:9'); // 推荐 16:9 宽高比
                           setGenerateAudio(true); // 推荐开启音频
                         }
@@ -2042,10 +2042,10 @@ export default function VideoGenerator() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="bg-slate-800 border-slate-600">
-                        <SelectItem value="doubao-seedance-2-0-pro">
+                        <SelectItem value="doubao-seedance-2.0-pro">
                           <div className="flex flex-col">
-                            <span className="font-medium">Doubao Seedance 2 Pro</span>
-                            <span className="text-sm text-amber-400">🚀 最新版 · 更强大</span>
+                            <span className="font-medium">Doubao Seedance 2.0 Pro</span>
+                            <span className="text-sm text-amber-400">🚀 最新版 · Coze 2.5+ 深度集成</span>
                             <span className="text-xs text-slate-500">火山引擎 · 新一代视频生成</span>
                           </div>
                         </SelectItem>

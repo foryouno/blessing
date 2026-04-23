@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
       ratio = '16:9',
       firstFrameUrl,
       lastFrameUrl,
-      model = 'doubao-seedance-1-5-pro-251215'
+      model = 'doubao-seedance-2.0-pro'
     } = await request.json();
     
     if (!prompt && !firstFrameUrl) {
