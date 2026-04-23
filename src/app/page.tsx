@@ -2071,8 +2071,14 @@ export default function VideoGenerator() {
               )}
 
               <Button
-                onClick={handleGenerate}
-                disabled={isGenerating || (model !== 'doubao-seed-tts' && !prompt.trim() && !firstFrameUrl) || (model === 'doubao-seed-tts' && !prompt.trim())}
+                onClick={() => {
+                  console.log('生成视频按钮被点击!');
+                  console.log('当前 prompt:', prompt);
+                  console.log('当前 model:', model);
+                  console.log('isGenerating:', isGenerating);
+                  handleGenerate();
+                }}
+                disabled={isGenerating || (!prompt.trim() && !firstFrameUrl)}
                 className={`w-full py-6 text-lg font-semibold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
                   model === 'doubao-seed-tts'
                     ? 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700'
