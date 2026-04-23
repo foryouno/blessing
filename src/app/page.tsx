@@ -278,8 +278,8 @@ export default function VideoGenerator() {
         throw new Error(data.error || '生成剧本失败');
       }
 
-      if (generateMultipleVideos && data.scripts && data.scripts.length > 0) {
-        // 多视频模式：逐个生成视频
+      if (generateMultipleVideos) {
+        // 多视频模式：逐个生成剧本和视频
         setIsGeneratingMultiple(true);
         setShowScriptGenerator(false);
         
@@ -288,22 +288,50 @@ export default function VideoGenerator() {
         const currentRatio = ratio;
         const currentModel = model;
         const currentGenerateAudio = generateAudio;
-        const scriptsToGenerate = data.scripts;
+        const totalVideos = videoCount;
         const generatedVideoUrls: string[] = [];
         
         console.log('====== 多视频生成开始 ======');
-        console.log('剧本数量:', scriptsToGenerate.length);
-        console.log('剧本内容:', scriptsToGenerate);
+        console.log('计划生成视频数量:', totalVideos);
         
-        for (let i = 0; i < scriptsToGenerate.length; i++) {
-          console.log('--- 开始生成第', i + 1, '个视频 ---');
+        for (let i = 0; i < totalVideos; i++) {
+          console.log(`--- 开始处理第 ${i + 1}/${totalVideos} 个视频 ---`);
           setCurrentVideoIndex(i + 1);
-          const currentPrompt = scriptsToGenerate[i];
           
           try {
-            console.log('调用视频生成 API...');
-            // 直接调用视频生成 API，避免 handleGenerate 的状态冲突
-            const response = await fetch('/api/generate-video', {
+            // 1. 先生成这个视频的剧本
+            console.log('步骤1: 生成剧本...');
+            const scriptResponse = await fetch('/api/generate-script', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                topic: `${scriptTopic}（第${i + 1}集）`,
+                style: scriptStyle,
+                duration: 12,
+                language: 'zh',
+                videoCount: 1,
+                isMultiVideo: false
+              }),
+            });
+
+            const scriptData = await scriptResponse.json();
+
+            if (!scriptResponse.ok) {
+              throw new Error(scriptData.error || `第${i + 1}个视频剧本生成失败`);
+            }
+
+            if (!scriptData.script) {
+              throw new Error(`第${i + 1}个视频未生成剧本`);
+            }
+
+            const currentPrompt = scriptData.script;
+            console.log('剧本生成成功:', currentPrompt.substring(0, 50) + '...');
+
+            // 2. 再生成视频
+            console.log('步骤2: 生成视频...');
+            const videoResponse = await fetch('/api/generate-video', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -317,22 +345,22 @@ export default function VideoGenerator() {
               }),
             });
 
-            console.log('API 响应状态:', response.status);
-            const responseData = await response.json();
-            console.log('API 响应数据:', responseData);
+            console.log('视频生成 API 响应状态:', videoResponse.status);
+            const videoData = await videoResponse.json();
+            console.log('视频生成 API 响应数据:', videoData);
 
-            if (!response.ok) {
-              console.error('第', i + 1, '个视频生成失败:', responseData);
-              throw new Error(responseData.error || `第${i + 1}个视频生成失败`);
+            if (!videoResponse.ok) {
+              console.error('第', i + 1, '个视频生成失败:', videoData);
+              throw new Error(videoData.error || `第${i + 1}个视频生成失败`);
             }
 
-            console.log('第', i + 1, '个视频生成成功! URL:', responseData.videoUrl);
-            generatedVideoUrls.push(responseData.videoUrl);
+            console.log('第', i + 1, '个视频生成成功! URL:', videoData.videoUrl);
+            generatedVideoUrls.push(videoData.videoUrl);
 
-            // 保存到历史记录
-            console.log('保存到历史记录...');
+            // 3. 保存到历史记录
+            console.log('步骤3: 保存到历史记录...');
             saveToHistory({
-              videoUrl: responseData.videoUrl,
+              videoUrl: videoData.videoUrl,
               prompt: currentPrompt,
               duration: 12,
               ratio: currentRatio,
@@ -340,17 +368,17 @@ export default function VideoGenerator() {
               model: currentModel,
             });
             
-            // 更新最后一个视频的 URL 到主界面
-            setVideoUrl(responseData.videoUrl);
+            // 4. 更新主界面显示当前视频
+            setVideoUrl(videoData.videoUrl);
             setPrompt(currentPrompt);
             
           } catch (err) {
-            console.error(`第${i + 1}个视频生成失败:`, err);
+            console.error(`第${i + 1}个视频处理失败:`, err);
           }
           
           // 如果不是最后一个视频，等待一下再继续
-          if (i < scriptsToGenerate.length - 1) {
-            console.log('等待3秒后生成下一个视频...');
+          if (i < totalVideos - 1) {
+            console.log('等待3秒后处理下一个视频...');
             await new Promise(resolve => setTimeout(resolve, 3000));
           }
         }
