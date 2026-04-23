@@ -41,7 +41,7 @@ export default function VideoGenerator() {
   const [duration, setDuration] = useState(5);
   const [ratio, setRatio] = useState('16:9');
   const [generateAudio, setGenerateAudio] = useState(true);
-  const [model, setModel] = useState('doubao-seedance-1-5-pro-251215');
+  const [model, setModel] = useState('doubao-seedance-2-0-pro-260215');
   const [isGenerating, setIsGenerating] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -601,7 +601,7 @@ export default function VideoGenerator() {
           prompt: enhancedPrompt,
           duration: videoDuration,
           firstFrameUrl: avatarImageUrl,
-          model: 'doubao-seedance-1-5-pro-251215'
+          model: model
         }),
       });
 
@@ -2030,6 +2030,13 @@ export default function VideoGenerator() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="bg-slate-800 border-slate-600">
+                        <SelectItem value="doubao-seedance-2-0-pro-260215">
+                          <div className="flex flex-col">
+                            <span className="font-medium">Doubao Seedance 2 Pro</span>
+                            <span className="text-sm text-amber-400">🚀 最新版 · 更强大</span>
+                            <span className="text-xs text-slate-500">火山引擎 · 新一代视频生成</span>
+                          </div>
+                        </SelectItem>
                         <SelectItem value="doubao-seedance-1-5-pro-251215">
                           <div className="flex flex-col">
                             <span className="font-medium">Doubao Seedance 1.5 Pro</span>
