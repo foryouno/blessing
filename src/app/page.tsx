@@ -1934,6 +1934,65 @@ export default function VideoGenerator() {
                       </span>
                     )}
                   </Button>
+                  
+                  {/* 图片说话功能（即梦模式）*/}
+                  <Card className="p-4 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border-cyan-500/30">
+                    <div className="flex items-start gap-3">
+                      <Mic className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <h3 className="text-white font-medium mb-1">🎤 图片说话（即梦模式）</h3>
+                        <p className="text-sm text-slate-300">
+                          上传图片，让图片中的人物或角色开口说话！
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-4 space-y-4">
+                      {/* 说话内容输入 */}
+                      <div>
+                        <Label className="text-white text-sm font-medium mb-2 block">
+                          输入说话内容
+                        </Label>
+                        <Textarea
+                          placeholder="输入你想让图片中的角色说的话...&#10;&#10;示例：&#10;大家好，我是这张图片中的角色，很高兴能和大家说话！"
+                          value={petActionCustom}
+                          onChange={(e) => setPetActionCustom(e.target.value)}
+                          className="min-h-[80px] bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500 resize-none"
+                          disabled={isGenerating}
+                        />
+                      </div>
+                      
+                      {/* 生成按钮 */}
+                      <Button
+                        onClick={() => {
+                          if (avatarImageUrl && petActionCustom) {
+                            setPrompt(`@首帧 这张图片中的角色正在说话，${petActionCustom}`);
+                            setAvatarPrompt(petActionCustom);
+                            handleGenerateAvatar();
+                          }
+                        }}
+                        disabled={isGenerating || !avatarImageUrl || !petActionCustom.trim()}
+                        className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white"
+                      >
+                        {isGenerating ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            生成中...
+                          </>
+                        ) : (
+                          <>
+                            <Mic className="w-4 h-4 mr-2" />
+                            让图片说话
+                          </>
+                        )}
+                      </Button>
+                      
+                      {!avatarImageUrl && (
+                        <p className="text-cyan-400 text-xs text-center">
+                          ⚠️ 请先在上方上传头像图片
+                        </p>
+                      )}
+                    </div>
+                  </Card>
                 </TabsContent>
 
                 {/* 图片生成标签页 */}
