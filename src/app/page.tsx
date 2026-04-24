@@ -59,7 +59,48 @@ export default function VideoGenerator() {
   const [imageTalkImageUrl, setImageTalkImageUrl] = useState<string | null>(null);
   const [imageTalkDuration, setImageTalkDuration] = useState(10);
   const [isUploadingImageTalk, setIsUploadingImageTalk] = useState(false);
+  const [imageTalkAutoDuration, setImageTalkAutoDuration] = useState(true);
+  const [isGeneratingImageTalkBatch, setIsGeneratingImageTalkBatch] = useState(false);
+  const [imageTalkBatchProgress, setImageTalkBatchProgress] = useState(0);
   const imageTalkInputRef = useRef<HTMLInputElement>(null);
+  
+  // 根据文字长度计算视频时长（中文每秒3-4字）
+  const calculateDurationFromText = (text: string): number => {
+    const chineseChars = text.replace(/[^\u4e00-\u9fa5]/g, '').length;
+    const totalChars = text.length;
+    // 混合内容：中文字符按3字/秒，其他字符按5字符/秒
+    const estimatedDuration = Math.ceil((chineseChars / 3) + ((totalChars - chineseChars) / 5));
+    // 限制在5-60秒之间
+    return Math.max(5, Math.min(60, estimatedDuration));
+  };
+  
+  // 将长文本分成多个片段，每个片段适合15秒视频
+  const splitTextIntoSegments = (text: string, maxDurationPerSegment: number = 15): string[] => {
+    const segments: string[] = [];
+    const sentences = text.split(/[。！？.!?]+/).filter(s => s.trim());
+    
+    let currentSegment = '';
+    let currentDuration = 0;
+    
+    for (const sentence of sentences) {
+      const sentenceDuration = calculateDurationFromText(sentence + '。');
+      
+      if (currentDuration + sentenceDuration > maxDurationPerSegment && currentSegment) {
+        segments.push(currentSegment.trim());
+        currentSegment = sentence + '。';
+        currentDuration = sentenceDuration;
+      } else {
+        currentSegment += (currentSegment ? ' ' : '') + sentence + '。';
+        currentDuration += sentenceDuration;
+      }
+    }
+    
+    if (currentSegment.trim()) {
+      segments.push(currentSegment.trim());
+    }
+    
+    return segments;
+  };
   
   // 宠物动作模仿相关状态
   const [selectedPetAction, setSelectedPetAction] = useState('');
@@ -79,6 +120,14 @@ export default function VideoGenerator() {
   const [isGeneratingMultiple, setIsGeneratingMultiple] = useState(false);
   
   // 强制重新编译的注释
+  
+  // 图片说话功能：自动计算时长
+  useEffect(() => {
+    if (imageTalkAutoDuration && imageTalkText.trim()) {
+      const autoDuration = calculateDurationFromText(imageTalkText);
+      setImageTalkDuration(Math.min(autoDuration, 15)); // 单个视频最多15秒
+    }
+  }, [imageTalkText, imageTalkAutoDuration]);
 
   const promptTemplates = [
     {
@@ -2038,65 +2087,169 @@ export default function VideoGenerator() {
                       
                       {/* 说话内容输入 */}
                       <div>
-                        <Label className="text-white text-sm font-medium mb-2 block">
-                          2. 输入说话内容
-                        </Label>
+                        <div className="flex items-center justify-between mb-2">
+                          <Label className="text-white text-sm font-medium">
+                            2. 输入说话内容
+                          </Label>
+                          {imageTalkText.trim() && (
+                            <span className="text-xs text-slate-400">
+                              {imageTalkText.length} 字 · 约 {calculateDurationFromText(imageTalkText)} 秒
+                            </span>
+                          )}
+                        </div>
                         <Textarea
                           placeholder="输入你想让图片中的角色说的话...&#10;&#10;示例：&#10;大家好，我是这张图片中的角色，很高兴能和大家说话！"
                           value={imageTalkText}
                           onChange={(e) => setImageTalkText(e.target.value)}
-                          className="min-h-[80px] bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500 resize-none"
-                          disabled={isGenerating}
+                          className="min-h-[100px] bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500 resize-none"
+                          disabled={isGenerating || isGeneratingImageTalkBatch}
                         />
                       </div>
                       
-                      {/* 视频时长设置 */}
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <Label className="text-white text-sm font-medium">
-                            3. 视频时长
+                      {/* 自动时长开关 */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            id="image-talk-auto-duration"
+                            checked={imageTalkAutoDuration}
+                            onCheckedChange={setImageTalkAutoDuration}
+                            disabled={isGenerating || isGeneratingImageTalkBatch}
+                          />
+                          <Label htmlFor="image-talk-auto-duration" className="text-white text-sm">
+                            自动匹配时长
                           </Label>
-                          <span className="text-cyan-400 text-sm font-mono">
-                            {imageTalkDuration}秒
+                        </div>
+                        {imageTalkText.trim() && calculateDurationFromText(imageTalkText) > 15 && (
+                          <span className="text-xs text-amber-400">
+                            ⚠️ 文字较长，将分 {Math.ceil(calculateDurationFromText(imageTalkText) / 15)} 段生成
                           </span>
-                        </div>
-                        <Slider
-                          value={[imageTalkDuration]}
-                          onValueChange={(value) => setImageTalkDuration(value[0])}
-                          min={5}
-                          max={15}
-                          step={1}
-                          className="w-full"
-                          disabled={isGenerating}
-                        />
-                        <div className="flex justify-between mt-1 text-xs text-slate-500">
-                          <span>5秒</span>
-                          <span>15秒</span>
-                        </div>
+                        )}
                       </div>
+                      
+                      {/* 视频时长设置（仅在非自动模式下显示） */}
+                      {!imageTalkAutoDuration && (
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <Label className="text-white text-sm font-medium">
+                              视频时长
+                            </Label>
+                            <span className="text-cyan-400 text-sm font-mono">
+                              {imageTalkDuration}秒
+                            </span>
+                          </div>
+                          <Slider
+                            value={[imageTalkDuration]}
+                            onValueChange={(value) => setImageTalkDuration(value[0])}
+                            min={5}
+                            max={15}
+                            step={1}
+                            className="w-full"
+                            disabled={isGenerating || isGeneratingImageTalkBatch}
+                          />
+                          <div className="flex justify-between mt-1 text-xs text-slate-500">
+                            <span>5秒</span>
+                            <span>15秒</span>
+                          </div>
+                        </div>
+                      )}
                       
                       {/* 生成按钮 */}
                       <Button
-                        onClick={() => {
-                          if (imageTalkImageUrl && imageTalkText) {
+                        onClick={async () => {
+                          if (!imageTalkImageUrl || !imageTalkText.trim()) return;
+                          
+                          const totalDuration = calculateDurationFromText(imageTalkText);
+                          
+                          if (totalDuration <= 15) {
+                            // 短文本：单次生成
                             setFirstFrameUrl(imageTalkImageUrl);
                             setPrompt(`@首帧 这张图片中的角色正在说话，${imageTalkText}`);
-                            setDuration(imageTalkDuration);
+                            setDuration(imageTalkAutoDuration ? totalDuration : imageTalkDuration);
                             handleGenerate();
+                          } else {
+                            // 长文本：分批次生成
+                            setIsGeneratingImageTalkBatch(true);
+                            setImageTalkBatchProgress(0);
+                            setError(null);
+                            setVideoUrl(null);
+                            
+                            try {
+                              const segments = splitTextIntoSegments(imageTalkText);
+                              const generatedVideos: string[] = [];
+                              
+                              for (let i = 0; i < segments.length; i++) {
+                                setImageTalkBatchProgress(Math.round((i / segments.length) * 100));
+                                
+                                // 生成单个视频片段
+                                const response = await fetch('/api/generate-video', {
+                                  method: 'POST',
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                  },
+                                  body: JSON.stringify({
+                                    prompt: `@首帧 这张图片中的角色正在说话，${segments[i]}`,
+                                    duration: Math.min(calculateDurationFromText(segments[i]), 15),
+                                    ratio,
+                                    generateAudio: true,
+                                    firstFrameUrl: imageTalkImageUrl,
+                                    model,
+                                  }),
+                                });
+                                
+                                const data = await response.json();
+                                
+                                if (!response.ok) {
+                                  throw new Error(data.error || `第 ${i + 1} 段视频生成失败`);
+                                }
+                                
+                                generatedVideos.push(data.videoUrl);
+                                
+                                // 保存到历史记录
+                                saveToHistory({
+                                  videoUrl: data.videoUrl,
+                                  prompt: segments[i],
+                                  duration: Math.min(calculateDurationFromText(segments[i]), 15),
+                                  ratio,
+                                  generateAudio: true,
+                                  model,
+                                  firstFrameUrl: imageTalkImageUrl,
+                                });
+                              }
+                              
+                              setImageTalkBatchProgress(100);
+                              
+                              // 显示第一个生成的视频（实际项目中可以在这里添加视频合并逻辑）
+                              if (generatedVideos.length > 0) {
+                                setVideoUrl(generatedVideos[0]);
+                              }
+                              
+                            } catch (err) {
+                              setError(err instanceof Error ? err.message : '分批次生成视频时发生错误');
+                            } finally {
+                              setIsGeneratingImageTalkBatch(false);
+                              setImageTalkBatchProgress(0);
+                            }
                           }
                         }}
-                        disabled={isGenerating || !imageTalkImageUrl || !imageTalkText.trim() || isUploadingImageTalk}
+                        disabled={isGenerating || !imageTalkImageUrl || !imageTalkText.trim() || isUploadingImageTalk || isGeneratingImageTalkBatch}
                         className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white"
                       >
-                        {isGenerating || isUploadingImageTalk ? (
+                        {isGenerating || isGeneratingImageTalkBatch ? (
                           <>
                             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            {isUploadingImageTalk ? '上传中...' : '生成中...'}
+                            {isGeneratingImageTalkBatch ? (
+                              <>分批次生成中 {imageTalkBatchProgress}%</>
+                            ) : (
+                              <>生成中...</>
+                            )}
                           </>
                         ) : (
                           <>
                             <Mic className="w-4 h-4 mr-2" />
-                            让图片说话
+                            {imageTalkText.trim() && calculateDurationFromText(imageTalkText) > 15 
+                              ? `分 ${Math.ceil(calculateDurationFromText(imageTalkText) / 15)} 段生成视频`
+                              : '让图片说话'
+                            }
                           </>
                         )}
                       </Button>
