@@ -57,6 +57,7 @@ export default function VideoGenerator() {
   // 图片说话功能状态
   const [imageTalkText, setImageTalkText] = useState('');
   const [imageTalkImageUrl, setImageTalkImageUrl] = useState<string | null>(null);
+  const [isUploadingImageTalk, setIsUploadingImageTalk] = useState(false);
   const imageTalkInputRef = useRef<HTMLInputElement>(null);
   
   // 宠物动作模仿相关状态
@@ -1968,30 +1969,44 @@ export default function VideoGenerator() {
                               accept="image/*"
                               onChange={async (e) => {
                                 const file = e.target.files?.[0];
-                                if (file) {
+                                if (!file) return;
+                                
+                                setIsUploadingImageTalk(true);
+                                
+                                try {
                                   const formData = new FormData();
                                   formData.append('file', file);
-                                  try {
-                                    const response = await fetch('/api/upload-image', {
-                                      method: 'POST',
-                                      body: formData,
-                                    });
-                                    const data = await response.json();
-                                    setImageTalkImageUrl(data.url);
-                                  } catch (err) {
-                                    console.error('上传失败:', err);
-                                  }
+                                  const response = await fetch('/api/upload-image', {
+                                    method: 'POST',
+                                    body: formData,
+                                  });
+                                  const data = await response.json();
+                                  setImageTalkImageUrl(data.url);
+                                } catch (err) {
+                                  console.error('上传失败:', err);
+                                } finally {
+                                  setIsUploadingImageTalk(false);
                                 }
                               }}
+                              disabled={isUploadingImageTalk}
                               className="hidden"
                             />
-                            <Upload className="w-12 h-12 mx-auto mb-3 text-slate-500" />
-                            <p className="text-slate-400">
-                              点击上传你想让说话的图片
-                            </p>
-                            <p className="text-slate-600 text-xs mt-1">
-                              支持 JPG、PNG 格式
-                            </p>
+                            {isUploadingImageTalk ? (
+                              <>
+                                <Loader2 className="w-12 h-12 mx-auto mb-3 text-cyan-400 animate-spin" />
+                                <p className="text-cyan-400">上传中...</p>
+                              </>
+                            ) : (
+                              <>
+                                <Upload className="w-12 h-12 mx-auto mb-3 text-slate-500" />
+                                <p className="text-slate-400">
+                                  点击上传你想让说话的图片
+                                </p>
+                                <p className="text-slate-600 text-xs mt-1">
+                                  支持 JPG、PNG 格式
+                                </p>
+                              </>
+                            )}
                           </div>
                         ) : (
                           <div className="relative">
@@ -2003,7 +2018,12 @@ export default function VideoGenerator() {
                             <Button
                               variant="destructive"
                               size="sm"
-                              onClick={() => setImageTalkImageUrl(null)}
+                              onClick={() => {
+                                setImageTalkImageUrl(null);
+                                if (imageTalkInputRef.current) {
+                                  imageTalkInputRef.current.value = '';
+                                }
+                              }}
                               className="absolute top-2 right-2"
                             >
                               <X className="w-4 h-4" />
@@ -2035,13 +2055,13 @@ export default function VideoGenerator() {
                             handleGenerate();
                           }
                         }}
-                        disabled={isGenerating || !imageTalkImageUrl || !imageTalkText.trim()}
+                        disabled={isGenerating || !imageTalkImageUrl || !imageTalkText.trim() || isUploadingImageTalk}
                         className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white"
                       >
-                        {isGenerating ? (
+                        {isGenerating || isUploadingImageTalk ? (
                           <>
                             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            生成中...
+                            {isUploadingImageTalk ? '上传中...' : '生成中...'}
                           </>
                         ) : (
                           <>
@@ -2051,7 +2071,7 @@ export default function VideoGenerator() {
                         )}
                       </Button>
                       
-                      {!imageTalkImageUrl && (
+                      {!imageTalkImageUrl && !isUploadingImageTalk && (
                         <p className="text-cyan-400 text-xs text-center">
                           ⚠️ 请先在上方上传图片
                         </p>
