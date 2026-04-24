@@ -1968,6 +1968,8 @@ export default function VideoGenerator() {
                       <Button
                         onClick={() => {
                           if (avatarImageUrl && imageTalkText) {
+                            // 将头像图片设置为首帧图片，这样 handleGenerate 就能识别
+                            setFirstFrameUrl(avatarImageUrl);
                             setPrompt(`@首帧 这张图片中的角色正在说话，${imageTalkText}`);
                             handleGenerate();
                           }
