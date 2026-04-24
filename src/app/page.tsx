@@ -1981,7 +1981,10 @@ export default function VideoGenerator() {
                                     body: formData,
                                   });
                                   const data = await response.json();
-                                  setImageTalkImageUrl(data.url);
+                                  if (!response.ok) {
+                                    throw new Error(data.error || '上传图片失败');
+                                  }
+                                  setImageTalkImageUrl(data.imageUrl);
                                 } catch (err) {
                                   console.error('上传失败:', err);
                                 } finally {
