@@ -52,6 +52,12 @@ export default function VideoGenerator() {
   const [showImageHistory, setShowImageHistory] = useState(false);
   const [imageHistory, setImageHistory] = useState<ImageHistoryItem[]>([]);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [showPetActions, setShowPetActions] = useState(false);
+  
+  // 宠物动作模仿相关状态
+  const [selectedPetAction, setSelectedPetAction] = useState('');
+  const [petType, setPetType] = useState('dog');
+  const [petActionCustom, setPetActionCustom] = useState('');
   
   // 剧本生成相关状态
   const [scriptTopic, setScriptTopic] = useState('');
@@ -112,6 +118,60 @@ export default function VideoGenerator() {
       title: '快速转场',
       icon: <Zap className="w-4 h-4" />,
       template: '@首帧 快速缩放模糊转场，无缝衔接 @末帧，节奏感强烈'
+    },
+    {
+      title: '狗狗握手',
+      icon: <Smile className="w-4 h-4" />,
+      template: '一只可爱的金毛犬坐在草地上，抬起前爪做出握手的动作，尾巴欢快地摇摆，眼神明亮友好'
+    },
+    {
+      title: '猫咪洗脸',
+      icon: <Smile className="w-4 h-4" />,
+      template: '一只优雅的橘猫坐在阳光下，用爪子认真地洗脸，动作轻柔可爱'
+    }
+  ];
+  
+  // 宠物动作模板库
+  const petActionTemplates = [
+    {
+      title: '狗狗握手',
+      petType: 'dog',
+      template: '一只可爱的金毛犬坐在草地上，抬起前爪做出握手的动作，尾巴欢快地摇摆，眼神明亮友好'
+    },
+    {
+      title: '狗狗作揖',
+      petType: 'dog',
+      template: '一只呆萌的柴犬站立起来，两只前爪合在一起作揖拜年，表情憨态可掬'
+    },
+    {
+      title: '狗狗接飞盘',
+      petType: 'dog',
+      template: '一只精力充沛的边境牧羊犬在草地上跳跃接飞盘，动作矫健，目光紧盯着飞盘'
+    },
+    {
+      title: '狗狗打滚',
+      petType: 'dog',
+      template: '一只开心的狗狗在草地上打滚撒娇，四脚朝天，露出肚皮，表情十分享受'
+    },
+    {
+      title: '猫咪洗脸',
+      petType: 'cat',
+      template: '一只优雅的橘猫坐在阳光下，用爪子认真地洗脸，动作轻柔可爱'
+    },
+    {
+      title: '猫咪伸懒腰',
+      petType: 'cat',
+      template: '一只慵懒的猫咪刚睡醒，站起身来伸懒腰，背部弓起，前爪向前拉伸'
+    },
+    {
+      title: '猫咪追毛线球',
+      petType: 'cat',
+      template: '一只好奇的猫咪在追逐滚动的毛线球，眼神专注，动作轻盈敏捷'
+    },
+    {
+      title: '猫咪蹭腿撒娇',
+      petType: 'cat',
+      template: '一只粘人的小猫咪在主人腿边蹭来蹭去，尾巴竖起来轻轻摆动，发出呼噜声'
     }
   ];
   
@@ -1000,6 +1060,7 @@ export default function VideoGenerator() {
                   <TabsTrigger value="images" className="flex-1">参考图片</TabsTrigger>
                   <TabsTrigger value="avatar" className="flex-1">数字人</TabsTrigger>
                   <TabsTrigger value="avatar-voice" className="flex-1">图片口播</TabsTrigger>
+                  <TabsTrigger value="pet-action" className="flex-1">宠物动作</TabsTrigger>
                   <TabsTrigger value="image-gen" className="flex-1">图片生成</TabsTrigger>
                 </TabsList>
                 
@@ -1023,6 +1084,15 @@ export default function VideoGenerator() {
                         >
                           <Wand2 className="w-3 h-3 mr-1" />
                           灵感模板
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setShowPetActions(!showPetActions)}
+                          className="h-7 text-xs bg-amber-600/20 hover:bg-amber-600/30 text-amber-300"
+                        >
+                          <Smile className="w-3 h-3 mr-1" />
+                          宠物动作
                         </Button>
                       </div>
                     </div>
@@ -1051,6 +1121,55 @@ export default function VideoGenerator() {
                               </div>
                             </Button>
                           ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* 宠物动作选择面板 */}
+                    {showPetActions && (
+                      <div className="mb-4 p-4 bg-amber-900/20 rounded-lg border border-amber-600/30">
+                        <div className="flex justify-between items-center mb-3">
+                          <Label className="text-amber-300 text-sm font-medium">选择宠物动作</Label>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => setPetType('dog')}
+                              className={`h-7 text-xs ${petType === 'dog' ? 'bg-amber-600' : 'bg-slate-700'}`}
+                            >
+                              🐕 狗狗
+                            </Button>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => setPetType('cat')}
+                              className={`h-7 text-xs ${petType === 'cat' ? 'bg-purple-600' : 'bg-slate-700'}`}
+                            >
+                              🐱 猫咪
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          {petActionTemplates
+                            .filter(template => template.petType === petType)
+                            .map((template, index) => (
+                              <Button
+                                key={index}
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => {
+                                  insertAtCursor(template.template);
+                                  setShowPetActions(false);
+                                }}
+                                className="justify-start h-auto py-3 text-left bg-slate-700/50 hover:bg-slate-700 border border-slate-600"
+                                disabled={isGenerating}
+                              >
+                                <div className="text-left">
+                                  <p className="text-white font-medium text-sm">{template.title}</p>
+                                  <p className="text-slate-400 text-xs line-clamp-2">{template.template}</p>
+                                </div>
+                              </Button>
+                            ))}
                         </div>
                       </div>
                     )}
