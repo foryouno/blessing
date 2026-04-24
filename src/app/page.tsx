@@ -64,14 +64,18 @@ export default function VideoGenerator() {
   const [imageTalkBatchProgress, setImageTalkBatchProgress] = useState(0);
   const imageTalkInputRef = useRef<HTMLInputElement>(null);
   
-  // 根据文字长度计算视频时长（中文每秒3-4字）
-  const calculateDurationFromText = (text: string): number => {
+  // 根据文字长度计算真实的预估时长（不限制范围，用于判断是否需要分段）
+  const calculateRealDurationFromText = (text: string): number => {
     const chineseChars = text.replace(/[^\u4e00-\u9fa5]/g, '').length;
     const totalChars = text.length;
     // 混合内容：中文字符按3字/秒，其他字符按5字符/秒
-    const estimatedDuration = Math.ceil((chineseChars / 3) + ((totalChars - chineseChars) / 5));
-    // 限制在5-12秒之间（模型支持的范围）
-    return Math.max(5, Math.min(12, estimatedDuration));
+    return Math.ceil((chineseChars / 3) + ((totalChars - chineseChars) / 5));
+  };
+  
+  // 根据文字长度计算单个视频的合法时长（限制在5-12秒）
+  const calculateValidDurationFromText = (text: string): number => {
+    const realDuration = calculateRealDurationFromText(text);
+    return Math.max(5, Math.min(12, realDuration));
   };
   
   // 将长文本分成多个片段，每个片段适合12秒视频
@@ -83,7 +87,7 @@ export default function VideoGenerator() {
     let currentDuration = 0;
     
     for (const sentence of sentences) {
-      const sentenceDuration = calculateDurationFromText(sentence + '。');
+      const sentenceDuration = calculateRealDurationFromText(sentence + '。');
       
       if (currentDuration + sentenceDuration > maxDurationPerSegment && currentSegment) {
         segments.push(currentSegment.trim());
@@ -124,7 +128,7 @@ export default function VideoGenerator() {
   // 图片说话功能：自动计算时长
   useEffect(() => {
     if (imageTalkAutoDuration && imageTalkText.trim()) {
-      const autoDuration = calculateDurationFromText(imageTalkText);
+      const autoDuration = calculateValidDurationFromText(imageTalkText);
       setImageTalkDuration(autoDuration);
     }
   }, [imageTalkText, imageTalkAutoDuration]);
@@ -2093,7 +2097,7 @@ export default function VideoGenerator() {
                           </Label>
                           {imageTalkText.trim() && (
                             <span className="text-xs text-slate-400">
-                              {imageTalkText.length} 字 · 约 {calculateDurationFromText(imageTalkText)} 秒
+                              {imageTalkText.length} 字 · 约 {calculateRealDurationFromText(imageTalkText)} 秒
                             </span>
                           )}
                         </div>
@@ -2119,9 +2123,9 @@ export default function VideoGenerator() {
                             自动匹配时长
                           </Label>
                         </div>
-                        {imageTalkText.trim() && calculateDurationFromText(imageTalkText) > 12 && (
+                        {imageTalkText.trim() && calculateRealDurationFromText(imageTalkText) > 12 && (
                           <span className="text-xs text-amber-400">
-                            ⚠️ 文字较长，将分 {Math.ceil(calculateDurationFromText(imageTalkText) / 12)} 段生成
+                            ⚠️ 文字较长，将分 {Math.ceil(calculateRealDurationFromText(imageTalkText) / 12)} 段生成
                           </span>
                         )}
                       </div>
@@ -2158,13 +2162,13 @@ export default function VideoGenerator() {
                         onClick={async () => {
                           if (!imageTalkImageUrl || !imageTalkText.trim()) return;
                           
-                          const totalDuration = calculateDurationFromText(imageTalkText);
+                          const totalDuration = calculateRealDurationFromText(imageTalkText);
                           
                           if (totalDuration <= 12) {
                             // 短文本：单次生成
                             setFirstFrameUrl(imageTalkImageUrl);
                             setPrompt(`@首帧 这张图片中的角色正在说话，${imageTalkText}`);
-                            setDuration(imageTalkAutoDuration ? totalDuration : imageTalkDuration);
+                            setDuration(imageTalkAutoDuration ? calculateValidDurationFromText(imageTalkText) : imageTalkDuration);
                             handleGenerate();
                           } else {
                             // 长文本：分批次生成
@@ -2178,10 +2182,11 @@ export default function VideoGenerator() {
                               const generatedVideos: string[] = [];
                               
                               for (let i = 0; i < segments.length; i++) {
-                                setImageTalkBatchProgress(Math.round((i / segments.length) * 100));
+                                // 暂时禁用进度更新避免缓存问题
+                                // setImageTalkBatchProgress(Math.floor((i / segments.length) * 100));
                                 
                                 // 生成单个视频片段
-                                const segmentDuration = Math.min(calculateDurationFromText(segments[i]), 12);
+                                const segmentDuration = calculateValidDurationFromText(segments[i]);
                                 
                                 const response = await fetch('/api/generate-video', {
                                   method: 'POST',
@@ -2248,8 +2253,8 @@ export default function VideoGenerator() {
                         ) : (
                           <>
                             <Mic className="w-4 h-4 mr-2" />
-                            {imageTalkText.trim() && calculateDurationFromText(imageTalkText) > 12 
-                              ? `分 ${Math.ceil(calculateDurationFromText(imageTalkText) / 12)} 段生成视频`
+                            {imageTalkText.trim() && calculateRealDurationFromText(imageTalkText) > 12 
+                              ? `分 ${Math.ceil(calculateRealDurationFromText(imageTalkText) / 12)} 段生成视频`
                               : '让图片说话'
                             }
                           </>
