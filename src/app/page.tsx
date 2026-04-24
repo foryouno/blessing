@@ -57,6 +57,7 @@ export default function VideoGenerator() {
   // 图片说话功能状态
   const [imageTalkText, setImageTalkText] = useState('');
   const [imageTalkImageUrl, setImageTalkImageUrl] = useState<string | null>(null);
+  const [imageTalkDuration, setImageTalkDuration] = useState(10);
   const [isUploadingImageTalk, setIsUploadingImageTalk] = useState(false);
   const imageTalkInputRef = useRef<HTMLInputElement>(null);
   
@@ -2049,12 +2050,38 @@ export default function VideoGenerator() {
                         />
                       </div>
                       
+                      {/* 视频时长设置 */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <Label className="text-white text-sm font-medium">
+                            3. 视频时长
+                          </Label>
+                          <span className="text-cyan-400 text-sm font-mono">
+                            {imageTalkDuration}秒
+                          </span>
+                        </div>
+                        <Slider
+                          value={[imageTalkDuration]}
+                          onValueChange={(value) => setImageTalkDuration(value[0])}
+                          min={5}
+                          max={15}
+                          step={1}
+                          className="w-full"
+                          disabled={isGenerating}
+                        />
+                        <div className="flex justify-between mt-1 text-xs text-slate-500">
+                          <span>5秒</span>
+                          <span>15秒</span>
+                        </div>
+                      </div>
+                      
                       {/* 生成按钮 */}
                       <Button
                         onClick={() => {
                           if (imageTalkImageUrl && imageTalkText) {
                             setFirstFrameUrl(imageTalkImageUrl);
                             setPrompt(`@首帧 这张图片中的角色正在说话，${imageTalkText}`);
+                            setDuration(imageTalkDuration);
                             handleGenerate();
                           }
                         }}
