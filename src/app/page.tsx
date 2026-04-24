@@ -56,6 +56,8 @@ export default function VideoGenerator() {
   
   // 图片说话功能状态
   const [imageTalkText, setImageTalkText] = useState('');
+  const [imageTalkImageUrl, setImageTalkImageUrl] = useState<string | null>(null);
+  const imageTalkInputRef = useRef<HTMLInputElement>(null);
   
   // 宠物动作模仿相关状态
   const [selectedPetAction, setSelectedPetAction] = useState('');
@@ -1950,10 +1952,70 @@ export default function VideoGenerator() {
                       </div>
                     </div>
                     <div className="mt-4 space-y-4">
+                      {/* 独立的图片上传区域 */}
+                      <div>
+                        <Label className="text-white text-sm font-medium mb-2 block">
+                          1. 上传图片
+                        </Label>
+                        {!imageTalkImageUrl ? (
+                          <div
+                            onClick={() => imageTalkInputRef.current?.click()}
+                            className="border-2 border-dashed border-slate-600 rounded-lg p-8 text-center cursor-pointer hover:border-slate-500 hover:bg-slate-800/50 transition-all"
+                          >
+                            <input
+                              ref={imageTalkInputRef}
+                              type="file"
+                              accept="image/*"
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const formData = new FormData();
+                                  formData.append('file', file);
+                                  try {
+                                    const response = await fetch('/api/upload-image', {
+                                      method: 'POST',
+                                      body: formData,
+                                    });
+                                    const data = await response.json();
+                                    setImageTalkImageUrl(data.url);
+                                  } catch (err) {
+                                    console.error('上传失败:', err);
+                                  }
+                                }
+                              }}
+                              className="hidden"
+                            />
+                            <Upload className="w-12 h-12 mx-auto mb-3 text-slate-500" />
+                            <p className="text-slate-400">
+                              点击上传你想让说话的图片
+                            </p>
+                            <p className="text-slate-600 text-xs mt-1">
+                              支持 JPG、PNG 格式
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="relative">
+                            <img
+                              src={imageTalkImageUrl}
+                              alt="要说话的图片"
+                              className="w-full h-48 object-cover rounded-lg"
+                            />
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => setImageTalkImageUrl(null)}
+                              className="absolute top-2 right-2"
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                      
                       {/* 说话内容输入 */}
                       <div>
                         <Label className="text-white text-sm font-medium mb-2 block">
-                          输入说话内容
+                          2. 输入说话内容
                         </Label>
                         <Textarea
                           placeholder="输入你想让图片中的角色说的话...&#10;&#10;示例：&#10;大家好，我是这张图片中的角色，很高兴能和大家说话！"
@@ -1967,14 +2029,13 @@ export default function VideoGenerator() {
                       {/* 生成按钮 */}
                       <Button
                         onClick={() => {
-                          if (avatarImageUrl && imageTalkText) {
-                            // 将头像图片设置为首帧图片，这样 handleGenerate 就能识别
-                            setFirstFrameUrl(avatarImageUrl);
+                          if (imageTalkImageUrl && imageTalkText) {
+                            setFirstFrameUrl(imageTalkImageUrl);
                             setPrompt(`@首帧 这张图片中的角色正在说话，${imageTalkText}`);
                             handleGenerate();
                           }
                         }}
-                        disabled={isGenerating || !avatarImageUrl || !imageTalkText.trim()}
+                        disabled={isGenerating || !imageTalkImageUrl || !imageTalkText.trim()}
                         className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white"
                       >
                         {isGenerating ? (
@@ -1990,9 +2051,9 @@ export default function VideoGenerator() {
                         )}
                       </Button>
                       
-                      {!avatarImageUrl && (
+                      {!imageTalkImageUrl && (
                         <p className="text-cyan-400 text-xs text-center">
-                          ⚠️ 请先在上方上传头像图片
+                          ⚠️ 请先在上方上传图片
                         </p>
                       )}
                     </div>
