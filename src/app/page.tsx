@@ -54,6 +54,9 @@ export default function VideoGenerator() {
   const [showTemplates, setShowTemplates] = useState(false);
   const [showPetActions, setShowPetActions] = useState(false);
   
+  // 图片说话功能状态
+  const [imageTalkText, setImageTalkText] = useState('');
+  
   // 宠物动作模仿相关状态
   const [selectedPetAction, setSelectedPetAction] = useState('');
   const [petType, setPetType] = useState<'dog' | 'cat' | 'human'>('dog');
@@ -1954,8 +1957,8 @@ export default function VideoGenerator() {
                         </Label>
                         <Textarea
                           placeholder="输入你想让图片中的角色说的话...&#10;&#10;示例：&#10;大家好，我是这张图片中的角色，很高兴能和大家说话！"
-                          value={petActionCustom}
-                          onChange={(e) => setPetActionCustom(e.target.value)}
+                          value={imageTalkText}
+                          onChange={(e) => setImageTalkText(e.target.value)}
                           className="min-h-[80px] bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500 resize-none"
                           disabled={isGenerating}
                         />
@@ -1964,13 +1967,12 @@ export default function VideoGenerator() {
                       {/* 生成按钮 */}
                       <Button
                         onClick={() => {
-                          if (avatarImageUrl && petActionCustom) {
-                            setPrompt(`@首帧 这张图片中的角色正在说话，${petActionCustom}`);
-                            setAvatarPrompt(petActionCustom);
-                            handleGenerateAvatar();
+                          if (avatarImageUrl && imageTalkText) {
+                            setPrompt(`@首帧 这张图片中的角色正在说话，${imageTalkText}`);
+                            handleGenerate();
                           }
                         }}
-                        disabled={isGenerating || !avatarImageUrl || !petActionCustom.trim()}
+                        disabled={isGenerating || !avatarImageUrl || !imageTalkText.trim()}
                         className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white"
                       >
                         {isGenerating ? (
