@@ -2167,7 +2167,7 @@ export default function VideoGenerator() {
                           if (totalDuration <= 12) {
                             // 短文本：单次生成
                             setFirstFrameUrl(imageTalkImageUrl);
-                            setPrompt(`@首帧 这张图片中的角色正在说话，${imageTalkText}`);
+                            setPrompt(imageTalkText);
                             setDuration(imageTalkAutoDuration ? calculateValidDurationFromText(imageTalkText) : imageTalkDuration);
                             handleGenerate();
                           } else {
@@ -2194,7 +2194,7 @@ export default function VideoGenerator() {
                                     'Content-Type': 'application/json',
                                   },
                                   body: JSON.stringify({
-                                    prompt: `@首帧 这张图片中的角色正在说话，${segments[i]}`,
+                                    prompt: segments[i],
                                     duration: segmentDuration,
                                     ratio,
                                     generateAudio: true,
