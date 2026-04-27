@@ -2188,6 +2188,10 @@ export default function VideoGenerator() {
                                 // 生成单个视频片段
                                 const segmentDuration = calculateValidDurationFromText(segments[i]);
                                 
+                                // 第一个视频用用户上传的图片，后续视频也用同一张图片保持一致性
+                                // 如果有末帧提取功能，这里可以改用前一个视频的末帧
+                                const currentFirstFrame = imageTalkImageUrl;
+                                
                                 const response = await fetch('/api/generate-video', {
                                   method: 'POST',
                                   headers: {
@@ -2198,7 +2202,7 @@ export default function VideoGenerator() {
                                     duration: segmentDuration,
                                     ratio,
                                     generateAudio: true,
-                                    firstFrameUrl: imageTalkImageUrl,
+                                    firstFrameUrl: currentFirstFrame,
                                     model,
                                   }),
                                 });
