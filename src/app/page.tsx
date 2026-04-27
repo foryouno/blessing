@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Sparkles, Video, Loader2, Download, Play, Upload, X, History, Trash2, Clock, Lightbulb, Copy, Wand2, Palette, Zap, Film, User, Mic, Smile, Monitor, AlignLeft, RefreshCw } from 'lucide-react';
+import { Sparkles, Video, Loader2, Download, Play, Upload, X, History, Trash2, Clock, Lightbulb, Copy, Wand2, Palette, Zap, Film, User, Mic, Smile, Monitor, AlignLeft, RefreshCw, BookOpen } from 'lucide-react';
 
 interface VideoHistoryItem {
   id: string;
@@ -1019,6 +1019,20 @@ export default function VideoGenerator() {
             <h1 className="text-4xl font-bold text-white">AI 视频生成器</h1>
           </div>
           <p className="text-gray-400 text-lg">基于火山引擎 · 输入你的创意描述，AI 为你生成精彩视频</p>
+          
+          {/* API 文档入口提示 */}
+          <div className="mt-4 inline-flex items-center gap-3 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 rounded-lg px-4 py-2">
+            <Zap className="w-5 h-5 text-cyan-400" />
+            <span className="text-cyan-300 font-medium">🤖 机器人可通过 API 调用所有功能</span>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => window.open('/api-docs', '_blank')}
+              className="bg-cyan-600 hover:bg-cyan-700 text-white"
+            >
+              查看 API 文档
+            </Button>
+          </div>
         </div>
 
         <div className="max-w-4xl mx-auto mb-6">
