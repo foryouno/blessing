@@ -58,6 +58,7 @@ export default function VideoGenerator() {
   const [imageTalkText, setImageTalkText] = useState('');
   const [imageTalkImageUrl, setImageTalkImageUrl] = useState<string | null>(null);
   const [imageTalkDuration, setImageTalkDuration] = useState(8);
+  const [imageTalkRatio, setImageTalkRatio] = useState('16:9');
   const [isUploadingImageTalk, setIsUploadingImageTalk] = useState(false);
   const [imageTalkAutoDuration, setImageTalkAutoDuration] = useState(true);
   const [isGeneratingImageTalkBatch, setIsGeneratingImageTalkBatch] = useState(false);
@@ -2130,6 +2131,28 @@ export default function VideoGenerator() {
                         )}
                       </div>
                       
+                      {/* 视频比例设置 */}
+                      <div>
+                        <Label className="text-white text-sm font-medium mb-2 block">
+                          视频比例
+                        </Label>
+                        <Select 
+                          value={imageTalkRatio} 
+                          onValueChange={setImageTalkRatio} 
+                          disabled={isGenerating || isGeneratingImageTalkBatch}
+                        >
+                          <SelectTrigger className="bg-slate-700/50 border-slate-600 text-white">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-slate-800 border-slate-600">
+                            <SelectItem value="16:9">16:9 (横屏)</SelectItem>
+                            <SelectItem value="9:16">9:16 (竖屏)</SelectItem>
+                            <SelectItem value="1:1">1:1 (方形)</SelectItem>
+                            <SelectItem value="4:3">4:3 (传统)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
                       {/* 视频时长设置（仅在非自动模式下显示） */}
                       {!imageTalkAutoDuration && (
                         <div>
@@ -2169,6 +2192,7 @@ export default function VideoGenerator() {
                             setFirstFrameUrl(imageTalkImageUrl);
                             setPrompt(imageTalkText);
                             setDuration(imageTalkAutoDuration ? calculateValidDurationFromText(imageTalkText) : imageTalkDuration);
+                            setRatio(imageTalkRatio);
                             handleGenerate();
                           } else {
                             // 长文本：分批次生成
@@ -2200,7 +2224,7 @@ export default function VideoGenerator() {
                                   body: JSON.stringify({
                                     prompt: segments[i],
                                     duration: segmentDuration,
-                                    ratio,
+                                    ratio: imageTalkRatio,
                                     generateAudio: true,
                                     firstFrameUrl: currentFirstFrame,
                                     model,
