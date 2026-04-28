@@ -2258,7 +2258,7 @@ export default function VideoGenerator() {
                                   videoUrl: data.videoUrl,
                                   prompt: segments[i],
                                   duration: segmentDuration,
-                                  ratio,
+                                  ratio: imageTalkRatio,
                                   generateAudio: true,
                                   model,
                                   firstFrameUrl: imageTalkImageUrl,
