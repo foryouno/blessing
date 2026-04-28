@@ -107,6 +107,77 @@ export default function VideoGenerator() {
     return segments;
   };
   
+  // 提取视频最后一帧
+  const extractVideoLastFrame = async (videoUrl: string): Promise<string | null> => {
+    return new Promise((resolve, reject) => {
+      try {
+        const video = document.createElement('video');
+        video.crossOrigin = 'anonymous';
+        video.src = videoUrl;
+        video.preload = 'auto';
+        
+        video.addEventListener('loadedmetadata', () => {
+          // 跳转到最后一帧
+          video.currentTime = video.duration - 0.1;
+        });
+        
+        video.addEventListener('seeked', async () => {
+          try {
+            // 使用 canvas 截取最后一帧
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+              throw new Error('无法获取 canvas context');
+            }
+            
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // 将 canvas 转换为 blob
+            canvas.toBlob(async (blob) => {
+              if (!blob) {
+                reject(new Error('无法生成图片 blob'));
+                return;
+              }
+              
+              try {
+                // 上传到 TOS
+                const formData = new FormData();
+                formData.append('file', blob, `last-frame-${Date.now()}.png`);
+                
+                const response = await fetch('/api/upload-image', {
+                  method: 'POST',
+                  body: formData,
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.imageUrl) {
+                  resolve(data.imageUrl);
+                } else {
+                  reject(new Error(data.error || '上传失败'));
+                }
+              } catch (uploadErr) {
+                reject(uploadErr);
+              }
+            }, 'image/png');
+          } catch (err) {
+            reject(err);
+          }
+        });
+        
+        video.addEventListener('error', (err) => {
+          reject(new Error('视频加载失败'));
+        });
+        
+      } catch (err) {
+        reject(err);
+      }
+    });
+  };
+  
   // 宠物动作模仿相关状态
   const [selectedPetAction, setSelectedPetAction] = useState('');
   const [petType, setPetType] = useState<'dog' | 'cat' | 'human'>('dog');
@@ -2219,16 +2290,15 @@ export default function VideoGenerator() {
                               const segments = splitTextIntoSegments(imageTalkText, 12);
                               const generatedVideos: string[] = [];
                               
+                              // 第一个视频用用户上传的图片
+                              let currentFirstFrame = imageTalkImageUrl;
+                              
                               for (let i = 0; i < segments.length; i++) {
                                 // 暂时禁用进度更新避免缓存问题
                                 // setImageTalkBatchProgress(Math.floor((i / segments.length) * 100));
                                 
                                 // 生成单个视频片段
                                 const segmentDuration = calculateValidDurationFromText(segments[i]);
-                                
-                                // 第一个视频用用户上传的图片，后续视频也用同一张图片保持一致性
-                                // 如果有末帧提取功能，这里可以改用前一个视频的末帧
-                                const currentFirstFrame = imageTalkImageUrl;
                                 
                                 const response = await fetch('/api/generate-video', {
                                   method: 'POST',
@@ -2261,8 +2331,21 @@ export default function VideoGenerator() {
                                   ratio: imageTalkRatio,
                                   generateAudio: true,
                                   model,
-                                  firstFrameUrl: imageTalkImageUrl,
+                                  firstFrameUrl: currentFirstFrame,
                                 });
+                                
+                                // 如果不是最后一个片段，提取当前视频的最后一帧作为下一个的首帧
+                                if (i < segments.length - 1) {
+                                  try {
+                                    const lastFrameUrl = await extractVideoLastFrame(data.videoUrl);
+                                    if (lastFrameUrl) {
+                                      currentFirstFrame = lastFrameUrl;
+                                    }
+                                  } catch (extractErr) {
+                                    console.error('提取最后一帧失败，继续使用当前首帧:', extractErr);
+                                    // 如果提取失败，继续使用当前首帧
+                                  }
+                                }
                               }
                               
                               setImageTalkBatchProgress(100);
