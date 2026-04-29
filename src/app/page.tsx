@@ -485,8 +485,8 @@ export default function VideoGenerator() {
         throw new Error(data.error || '生成剧本失败');
       }
 
-      if (generateMultipleVideos) {
-        // 多视频模式：逐个生成剧本和视频
+      if (generateMultipleVideos && data.scripts && data.scripts.length > 0) {
+        // 多视频模式：使用后端返回的多个剧本
         setIsGeneratingMultiple(true);
         setShowScriptGenerator(false);
         
@@ -495,48 +495,24 @@ export default function VideoGenerator() {
         const currentRatio = ratio;
         const currentModel = model;
         const currentGenerateAudio = generateAudio;
-        const totalVideos = videoCount;
+        const scripts = data.scripts;
+        const totalVideos = scripts.length;
         const generatedVideoUrls: string[] = [];
         
         console.log('====== 多视频生成开始 ======');
-        console.log('计划生成视频数量:', totalVideos);
+        console.log('后端返回剧本数量:', totalVideos);
+        
+        let previousLastFrameUrl: string | null = null;
         
         for (let i = 0; i < totalVideos; i++) {
           console.log(`--- 开始处理第 ${i + 1}/${totalVideos} 个视频 ---`);
           setCurrentVideoIndex(i + 1);
           
           try {
-            // 1. 先生成这个视频的剧本
-            console.log('步骤1: 生成剧本...');
-            const scriptResponse = await fetch('/api/generate-script', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                topic: `${scriptTopic}（第${i + 1}集）`,
-                style: scriptStyle,
-                duration: 12,
-                language: 'zh',
-                videoCount: 1,
-                isMultiVideo: false
-              }),
-            });
-
-            const scriptData = await scriptResponse.json();
-
-            if (!scriptResponse.ok) {
-              throw new Error(scriptData.error || `第${i + 1}个视频剧本生成失败`);
-            }
-
-            if (!scriptData.script) {
-              throw new Error(`第${i + 1}个视频未生成剧本`);
-            }
-
-            const currentPrompt = scriptData.script;
-            console.log('剧本生成成功:', currentPrompt.substring(0, 50) + '...');
-
-            // 2. 再生成视频
+            const currentPrompt = scripts[i];
+            console.log('使用剧本:', currentPrompt.substring(0, 80) + '...');
+            
+            // 2. 生成视频
             console.log('步骤2: 生成视频...');
             const videoResponse = await fetch('/api/generate-video', {
               method: 'POST',
@@ -548,7 +524,8 @@ export default function VideoGenerator() {
                 duration: 12,
                 ratio: currentRatio,
                 generateAudio: currentGenerateAudio,
-                model: currentModel
+                model: currentModel,
+                firstFrameUrl: i > 0 ? previousLastFrameUrl : undefined
               }),
             });
 
@@ -564,8 +541,22 @@ export default function VideoGenerator() {
             console.log('第', i + 1, '个视频生成成功! URL:', videoData.videoUrl);
             generatedVideoUrls.push(videoData.videoUrl);
 
-            // 3. 保存到历史记录
-            console.log('步骤3: 保存到历史记录...');
+            // 3. 提取当前视频的最后一帧，作为下一个视频的首帧
+            if (i < totalVideos - 1) {
+              console.log('步骤3: 提取视频最后一帧...');
+              try {
+                const lastFrameUrl = await extractVideoLastFrame(videoData.videoUrl);
+                if (lastFrameUrl) {
+                  previousLastFrameUrl = lastFrameUrl;
+                  console.log('提取最后一帧成功:', lastFrameUrl);
+                }
+              } catch (frameErr) {
+                console.warn('提取最后一帧失败，将不使用首帧连贯性:', frameErr);
+              }
+            }
+
+            // 4. 保存到历史记录
+            console.log('步骤4: 保存到历史记录...');
             saveToHistory({
               videoUrl: videoData.videoUrl,
               prompt: currentPrompt,
@@ -573,9 +564,11 @@ export default function VideoGenerator() {
               ratio: currentRatio,
               generateAudio: currentGenerateAudio,
               model: currentModel,
+              firstFrameUrl: (i > 0 ? previousLastFrameUrl : undefined) as string | undefined,
+              lastFrameUrl: previousLastFrameUrl as string | undefined
             });
             
-            // 4. 更新主界面显示当前视频
+            // 5. 更新主界面显示当前视频
             setVideoUrl(videoData.videoUrl);
             setPrompt(currentPrompt);
             
