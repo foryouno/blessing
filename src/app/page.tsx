@@ -107,6 +107,37 @@ export default function VideoGenerator() {
     return segments;
   };
   
+  // 将文本片段转换为视频提示词
+  const convertTextToVideoPrompt = (text: string, segmentIndex: number, totalSegments: number): string => {
+    // 为每个片段生成专门的视频提示词
+    const sceneDescriptions = [
+      '开场介绍：专业数字人面向镜头，背景简洁明亮',
+      '深入讲解：数字人配合手势动作，背景有相关视觉元素',
+      '案例展示：数字人指向侧面，背景展示具体案例',
+      '总结回顾：数字人微笑总结，背景温暖明亮',
+      '结尾呼吁：数字人亲切道别，背景有订阅引导'
+    ];
+    
+    const sceneDesc = sceneDescriptions[segmentIndex % sceneDescriptions.length];
+    
+    return `【分镜】
+⏱️ 时长：12秒
+📝 场景描述：${sceneDesc}
+🎤 台词/旁白：${text}
+🎬 画面提示：
+- 专业数字人出镜
+- 自然的表情和手势
+- 简洁专业的背景
+- 光线柔和明亮
+- 画面稳定流畅
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 总览：单个分镜，总时长12秒
+🎯 第${segmentIndex + 1}/${totalSegments}段
+📝 内容：${text.substring(0, 30)}...`;
+  };
+  
   // 提取视频最后一帧
   const extractVideoLastFrame = async (videoUrl: string): Promise<string | null> => {
     return new Promise((resolve, reject) => {
@@ -188,6 +219,10 @@ export default function VideoGenerator() {
   const [scriptStyle, setScriptStyle] = useState('professional');
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
   const [showScriptGenerator, setShowScriptGenerator] = useState(false);
+  
+  // 长文本转视频模式
+  const [scriptMode, setScriptMode] = useState<'ai' | 'text'>('ai'); // 'ai' = AI生成剧本, 'text' = 长文本输入
+  const [longTextInput, setLongTextInput] = useState('');
   
   // 多视频生成相关状态
   const [generateMultipleVideos, setGenerateMultipleVideos] = useState(false);
@@ -455,8 +490,12 @@ export default function VideoGenerator() {
 
   // 一键生成剧本功能
   const handleGenerateScript = async () => {
-    if (!scriptTopic.trim()) {
+    if (scriptMode === 'ai' && !scriptTopic.trim()) {
       setError('请先输入剧本主题');
+      return;
+    }
+    if (scriptMode === 'text' && !longTextInput.trim()) {
+      setError('请先输入要转换的长文本');
       return;
     }
 
@@ -464,43 +503,30 @@ export default function VideoGenerator() {
     setError(null);
 
     try {
-      const response = await fetch('/api/generate-script', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          topic: scriptTopic,
-          style: scriptStyle,
-          duration: duration,
-          language: 'zh',
-          videoCount: generateMultipleVideos ? videoCount : 1,
-          isMultiVideo: generateMultipleVideos
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || '生成剧本失败');
-      }
-
-      if (generateMultipleVideos && data.scripts && data.scripts.length > 0) {
-        // 多视频模式：使用后端返回的多个剧本
+      if (scriptMode === 'text') {
+        // 长文本转视频模式
+        console.log('====== 长文本转视频模式开始 ======');
+        
+        // 1. 智能分割长文本
+        const textSegments = splitTextIntoSegments(longTextInput, 12);
+        console.log('文本分割完成，共', textSegments.length, '段');
+        
+        if (textSegments.length === 0) {
+          throw new Error('文本分割失败');
+        }
+        
         setIsGeneratingMultiple(true);
         setShowScriptGenerator(false);
         
-        // 保存原始时长，强制设置为12秒
+        // 保存原始设置
         const originalDuration = duration;
         const currentRatio = ratio;
         const currentModel = model;
         const currentGenerateAudio = generateAudio;
-        const scripts = data.scripts;
-        const totalVideos = scripts.length;
+        const totalVideos = textSegments.length;
         const generatedVideoUrls: string[] = [];
         
-        console.log('====== 多视频生成开始 ======');
-        console.log('后端返回剧本数量:', totalVideos);
+        console.log('计划生成视频数量:', totalVideos);
         
         let previousLastFrameUrl: string | null = null;
         
@@ -509,11 +535,15 @@ export default function VideoGenerator() {
           setCurrentVideoIndex(i + 1);
           
           try {
-            const currentPrompt = scripts[i];
-            console.log('使用剧本:', currentPrompt.substring(0, 80) + '...');
+            const textSegment = textSegments[i];
+            console.log('文本片段:', textSegment.substring(0, 50) + '...');
             
-            // 2. 生成视频
-            console.log('步骤2: 生成视频...');
+            // 2. 将文本转换为视频提示词
+            const currentPrompt = convertTextToVideoPrompt(textSegment, i, totalVideos);
+            console.log('生成视频提示词:', currentPrompt.substring(0, 80) + '...');
+            
+            // 3. 生成视频
+            console.log('步骤3: 生成视频...');
             const videoResponse = await fetch('/api/generate-video', {
               method: 'POST',
               headers: {
@@ -541,9 +571,9 @@ export default function VideoGenerator() {
             console.log('第', i + 1, '个视频生成成功! URL:', videoData.videoUrl);
             generatedVideoUrls.push(videoData.videoUrl);
 
-            // 3. 提取当前视频的最后一帧，作为下一个视频的首帧
+            // 4. 提取当前视频的最后一帧，作为下一个视频的首帧
             if (i < totalVideos - 1) {
-              console.log('步骤3: 提取视频最后一帧...');
+              console.log('步骤4: 提取视频最后一帧...');
               try {
                 const lastFrameUrl = await extractVideoLastFrame(videoData.videoUrl);
                 if (lastFrameUrl) {
@@ -555,8 +585,8 @@ export default function VideoGenerator() {
               }
             }
 
-            // 4. 保存到历史记录
-            console.log('步骤4: 保存到历史记录...');
+            // 5. 保存到历史记录
+            console.log('步骤5: 保存到历史记录...');
             saveToHistory({
               videoUrl: videoData.videoUrl,
               prompt: currentPrompt,
@@ -568,7 +598,7 @@ export default function VideoGenerator() {
               lastFrameUrl: previousLastFrameUrl as string | undefined
             });
             
-            // 5. 更新主界面显示当前视频
+            // 6. 更新主界面显示当前视频
             setVideoUrl(videoData.videoUrl);
             setPrompt(currentPrompt);
             
@@ -593,15 +623,148 @@ export default function VideoGenerator() {
         setDuration(originalDuration);
         setIsGeneratingMultiple(false);
         setCurrentVideoIndex(0);
-      } else if (data.script) {
-        // 单视频模式
-        setPrompt(data.script);
-        setShowScriptGenerator(false);
         
-        // 自动生成视频！
-        setTimeout(() => {
-          handleGenerate();
-        }, 500);
+      } else {
+        // AI 生成剧本模式（原有逻辑）
+        const response = await fetch('/api/generate-script', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            topic: scriptTopic,
+            style: scriptStyle,
+            duration: duration,
+            language: 'zh',
+            videoCount: generateMultipleVideos ? videoCount : 1,
+            isMultiVideo: generateMultipleVideos
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || '生成剧本失败');
+        }
+
+        if (generateMultipleVideos && data.scripts && data.scripts.length > 0) {
+          // 多视频模式：使用后端返回的多个剧本
+          setIsGeneratingMultiple(true);
+          setShowScriptGenerator(false);
+          
+          // 保存原始时长，强制设置为12秒
+          const originalDuration = duration;
+          const currentRatio = ratio;
+          const currentModel = model;
+          const currentGenerateAudio = generateAudio;
+          const scripts = data.scripts;
+          const totalVideos = scripts.length;
+          const generatedVideoUrls: string[] = [];
+          
+          console.log('====== 多视频生成开始 ======');
+          console.log('后端返回剧本数量:', totalVideos);
+          
+          let previousLastFrameUrl: string | null = null;
+          
+          for (let i = 0; i < totalVideos; i++) {
+            console.log(`--- 开始处理第 ${i + 1}/${totalVideos} 个视频 ---`);
+            setCurrentVideoIndex(i + 1);
+            
+            try {
+              const currentPrompt = scripts[i];
+              console.log('使用剧本:', currentPrompt.substring(0, 80) + '...');
+              
+              // 2. 生成视频
+              console.log('步骤2: 生成视频...');
+              const videoResponse = await fetch('/api/generate-video', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  prompt: currentPrompt,
+                  duration: 12,
+                  ratio: currentRatio,
+                  generateAudio: currentGenerateAudio,
+                  model: currentModel,
+                  firstFrameUrl: i > 0 ? previousLastFrameUrl : undefined
+                }),
+              });
+
+              console.log('视频生成 API 响应状态:', videoResponse.status);
+              const videoData = await videoResponse.json();
+              console.log('视频生成 API 响应数据:', videoData);
+
+              if (!videoResponse.ok) {
+                console.error('第', i + 1, '个视频生成失败:', videoData);
+                throw new Error(videoData.error || `第${i + 1}个视频生成失败`);
+              }
+
+              console.log('第', i + 1, '个视频生成成功! URL:', videoData.videoUrl);
+              generatedVideoUrls.push(videoData.videoUrl);
+
+              // 3. 提取当前视频的最后一帧，作为下一个视频的首帧
+              if (i < totalVideos - 1) {
+                console.log('步骤3: 提取视频最后一帧...');
+                try {
+                  const lastFrameUrl = await extractVideoLastFrame(videoData.videoUrl);
+                  if (lastFrameUrl) {
+                    previousLastFrameUrl = lastFrameUrl;
+                    console.log('提取最后一帧成功:', lastFrameUrl);
+                  }
+                } catch (frameErr) {
+                  console.warn('提取最后一帧失败，将不使用首帧连贯性:', frameErr);
+                }
+              }
+
+              // 4. 保存到历史记录
+              console.log('步骤4: 保存到历史记录...');
+              saveToHistory({
+                videoUrl: videoData.videoUrl,
+                prompt: currentPrompt,
+                duration: 12,
+                ratio: currentRatio,
+                generateAudio: currentGenerateAudio,
+                model: currentModel,
+                firstFrameUrl: (i > 0 ? previousLastFrameUrl : undefined) as string | undefined,
+                lastFrameUrl: previousLastFrameUrl as string | undefined
+              });
+              
+              // 5. 更新主界面显示当前视频
+              setVideoUrl(videoData.videoUrl);
+              setPrompt(currentPrompt);
+              
+            } catch (err) {
+              console.error(`第${i + 1}个视频处理失败:`, err);
+            }
+            
+            // 如果不是最后一个视频，等待一下再继续
+            if (i < totalVideos - 1) {
+              console.log('等待3秒后处理下一个视频...');
+              await new Promise(resolve => setTimeout(resolve, 3000));
+            }
+          }
+          
+          console.log('====== 所有视频生成完成 ======');
+          console.log('生成的视频 URL 列表:', generatedVideoUrls);
+          
+          // 显示完成提示
+          alert(`✅ 所有 ${generatedVideoUrls.length} 个视频已生成完成！\n\n请查看历史记录查看所有生成的视频。`);
+          
+          // 恢复原始时长
+          setDuration(originalDuration);
+          setIsGeneratingMultiple(false);
+          setCurrentVideoIndex(0);
+        } else if (data.script) {
+          // 单视频模式
+          setPrompt(data.script);
+          setShowScriptGenerator(false);
+          
+          // 自动生成视频！
+          setTimeout(() => {
+            handleGenerate();
+          }, 500);
+        }
       }
     } catch {
       setError('生成剧本时发生错误');
@@ -1362,35 +1525,76 @@ export default function VideoGenerator() {
                               <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></span>
                               由 Seedance 2 大模型强力驱动
                             </div>
+                            
+                            {/* 模式选择 */}
                             <div>
                               <Label className="text-amber-200 text-sm font-medium mb-2 block">
-                                📝 剧本主题
+                                🎯 工作模式
                               </Label>
-                              <Textarea
-                                placeholder="输入你想要的视频主题，例如：介绍人工智能的发展历程"
-                                value={scriptTopic}
-                                onChange={(e) => setScriptTopic(e.target.value)}
-                                className="min-h-20 bg-slate-800/50 border-slate-600 text-white placeholder:text-gray-500"
-                                disabled={isGeneratingScript}
-                              />
+                              <Tabs value={scriptMode} onValueChange={(value) => setScriptMode(value as 'ai' | 'text')}>
+                                <TabsList className="grid grid-cols-2 bg-slate-800/50">
+                                  <TabsTrigger value="ai" className="data-[state=active]:bg-amber-600">
+                                    ✨ AI生成剧本
+                                  </TabsTrigger>
+                                  <TabsTrigger value="text" className="data-[state=active]:bg-purple-600">
+                                    📝 输入长文本
+                                  </TabsTrigger>
+                                </TabsList>
+                              </Tabs>
                             </div>
                             
-                            <div>
-                              <Label className="text-amber-200 text-sm font-medium mb-2 block">
-                                🎨 剧本风格
-                              </Label>
-                              <Select value={scriptStyle} onValueChange={setScriptStyle} disabled={isGeneratingScript}>
-                                <SelectTrigger className="bg-slate-800/50 border-slate-600 text-white">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent className="bg-slate-800 border-slate-600">
-                                  <SelectItem value="professional">专业严谨</SelectItem>
-                                  <SelectItem value="funny">幽默风趣</SelectItem>
-                                  <SelectItem value="emotional">情感共鸣</SelectItem>
-                                  <SelectItem value="concise">简洁明了</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
+                            {scriptMode === 'ai' ? (
+                              <>
+                                <div>
+                                  <Label className="text-amber-200 text-sm font-medium mb-2 block">
+                                    📝 剧本主题
+                                  </Label>
+                                  <Textarea
+                                    placeholder="输入你想要的视频主题，例如：介绍人工智能的发展历程"
+                                    value={scriptTopic}
+                                    onChange={(e) => setScriptTopic(e.target.value)}
+                                    className="min-h-20 bg-slate-800/50 border-slate-600 text-white placeholder:text-gray-500"
+                                    disabled={isGeneratingScript}
+                                  />
+                                </div>
+                                    
+                                <div>
+                                  <Label className="text-amber-200 text-sm font-medium mb-2 block">
+                                    🎨 剧本风格
+                                  </Label>
+                                  <Select value={scriptStyle} onValueChange={setScriptStyle} disabled={isGeneratingScript}>
+                                    <SelectTrigger className="bg-slate-800/50 border-slate-600 text-white">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-slate-800 border-slate-600">
+                                      <SelectItem value="professional">专业严谨</SelectItem>
+                                      <SelectItem value="funny">幽默风趣</SelectItem>
+                                      <SelectItem value="emotional">情感共鸣</SelectItem>
+                                      <SelectItem value="concise">简洁明了</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </>
+                            ) : (
+                              <div>
+                                <Label className="text-purple-200 text-sm font-medium mb-2 block">
+                                  📄 输入要转换的长文本
+                                </Label>
+                                <Textarea
+                                  placeholder="粘贴你要转换为视频的长文本内容...&#10;&#10;系统会自动：&#10;1. 智能分割成12秒片段&#10;2. 转换为视频提示词&#10;3. 逐一生成视频&#10;4. 保持内容连贯性"
+                                  value={longTextInput}
+                                  onChange={(e) => setLongTextInput(e.target.value)}
+                                  className="min-h-40 bg-slate-800/50 border-slate-600 text-white placeholder:text-gray-500"
+                                  disabled={isGeneratingScript}
+                                />
+                                {longTextInput.trim() && (
+                                  <div className="mt-2 text-sm text-purple-300">
+                                    <div>预估时长：{calculateRealDurationFromText(longTextInput)}秒</div>
+                                    <div>预计视频数：{Math.ceil(calculateRealDurationFromText(longTextInput) / 12)}个</div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                             
                             <div>
                               <Label className="text-amber-200 text-sm font-medium mb-2 block">
@@ -1414,21 +1618,25 @@ export default function VideoGenerator() {
                               <div className="flex items-center gap-2">
                                 <Checkbox
                                   id="multiple-videos"
-                                  checked={generateMultipleVideos}
-                                  onCheckedChange={(checked) => setGenerateMultipleVideos(checked as boolean)}
-                                  disabled={isGeneratingScript}
+                                  checked={scriptMode === 'text' ? true : generateMultipleVideos}
+                                  onCheckedChange={(checked) => scriptMode !== 'text' && setGenerateMultipleVideos(checked as boolean)}
+                                  disabled={isGeneratingScript || scriptMode === 'text'}
                                 />
                                 <Label htmlFor="multiple-videos" className="text-amber-200 text-sm">
-                                  🎬 生成多个12秒连贯视频
+                                  {scriptMode === 'text' ? '🎬 自动分割成多个12秒视频' : '🎬 生成多个12秒连贯视频'}
                                 </Label>
                               </div>
                               
-                              {generateMultipleVideos && (
+                              {(scriptMode === 'text' || generateMultipleVideos) && (
                                 <div>
                                   <Label className="text-amber-200 text-sm font-medium mb-2 block">
-                                    📹 视频数量
+                                    📹 {scriptMode === 'text' ? '预计视频数量' : '视频数量'}
                                   </Label>
-                                  <Select value={videoCount.toString()} onValueChange={(value) => setVideoCount(parseInt(value))} disabled={isGeneratingScript}>
+                                  <Select 
+                                    value={scriptMode === 'text' ? Math.ceil(calculateRealDurationFromText(longTextInput) / 12).toString() : videoCount.toString()} 
+                                    onValueChange={(value) => scriptMode !== 'text' && setVideoCount(parseInt(value))} 
+                                    disabled={isGeneratingScript || scriptMode === 'text'}
+                                  >
                                     <SelectTrigger className="bg-slate-800/50 border-slate-600 text-white">
                                       <SelectValue />
                                     </SelectTrigger>
@@ -1445,23 +1653,31 @@ export default function VideoGenerator() {
                             
                             <Button
                               onClick={handleGenerateScript}
-                              disabled={isGeneratingScript || isGeneratingMultiple || !scriptTopic.trim()}
+                              disabled={
+                                isGeneratingScript || 
+                                isGeneratingMultiple || 
+                                (scriptMode === 'ai' && !scriptTopic.trim()) ||
+                                (scriptMode === 'text' && !longTextInput.trim())
+                              }
                               className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white"
                             >
                               {isGeneratingMultiple ? (
                                 <>
                                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                  正在生成第 {currentVideoIndex}/{videoCount} 个视频...
+                                  正在生成第 {currentVideoIndex}/{scriptMode === 'text' ? Math.ceil(calculateRealDurationFromText(longTextInput) / 12) : videoCount} 个视频...
                                 </>
                               ) : isGeneratingScript ? (
                                 <>
                                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                  Seedance 2 正在创作剧本...
+                                  {scriptMode === 'text' ? '正在处理文本...' : 'Seedance 2 正在创作剧本...'}
                                 </>
                               ) : (
                                 <>
                                   <Sparkles className="w-4 h-4 mr-2" />
-                                  {generateMultipleVideos ? `生成 ${videoCount} 个12秒视频` : 'Seedance 2 一键生成'}
+                                  {scriptMode === 'text' 
+                                    ? `开始转换文本 → ${Math.ceil(calculateRealDurationFromText(longTextInput) / 12)}个视频`
+                                    : `生成 ${generateMultipleVideos ? videoCount : ''} 个12秒视频`
+                                  }
                                 </>
                               )}
                             </Button>
