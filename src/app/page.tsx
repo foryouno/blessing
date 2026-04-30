@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Sparkles, Video, Loader2, Download, Play, Upload, X, History, Trash2, Clock, Lightbulb, Copy, Wand2, Palette, Zap, Film, User, Mic, Smile, Monitor, AlignLeft, RefreshCw, BookOpen, Layers } from 'lucide-react';
+import { Sparkles, Video, Loader2, Download, Play, Upload, X, History, Trash2, Clock, Lightbulb, Copy, Wand2, Palette, Zap, Film, User, Mic, Smile, Monitor, AlignLeft, BookOpen, Layers } from 'lucide-react';
 
 interface VideoHistoryItem {
   id: string;
@@ -52,7 +52,6 @@ export default function VideoGenerator() {
   const [showImageHistory, setShowImageHistory] = useState(false);
   const [imageHistory, setImageHistory] = useState<ImageHistoryItem[]>([]);
   const [showTemplates, setShowTemplates] = useState(false);
-  const [showPetActions, setShowPetActions] = useState(false);
   
   // 图片说话功能状态
   const [imageTalkText, setImageTalkText] = useState('');
@@ -209,10 +208,7 @@ export default function VideoGenerator() {
     });
   };
   
-  // 宠物动作模仿相关状态
-  const [selectedPetAction, setSelectedPetAction] = useState('');
-  const [petType, setPetType] = useState<'dog' | 'cat' | 'human'>('dog');
-  const [petActionCustom, setPetActionCustom] = useState('');
+
   
   // 剧本生成相关状态
   const [scriptTopic, setScriptTopic] = useState('');
@@ -295,65 +291,6 @@ export default function VideoGenerator() {
       title: '猫咪洗脸',
       icon: <Smile className="w-4 h-4" />,
       template: '一只优雅的橘猫坐在阳光下，用爪子认真地洗脸，动作轻柔可爱'
-    }
-  ];
-  
-  // 宠物动作模板库
-  const petActionTemplates = [
-    {
-      title: '狗狗握手',
-      petType: 'dog',
-      template: '一只可爱的金毛犬坐在草地上，抬起前爪做出握手的动作，尾巴欢快地摇摆，眼神明亮友好'
-    },
-    {
-      title: '狗狗作揖',
-      petType: 'dog',
-      template: '一只呆萌的柴犬站立起来，两只前爪合在一起作揖拜年，表情憨态可掬'
-    },
-    {
-      title: '狗狗接飞盘',
-      petType: 'dog',
-      template: '一只精力充沛的边境牧羊犬在草地上跳跃接飞盘，动作矫健，目光紧盯着飞盘'
-    },
-    {
-      title: '狗狗打滚',
-      petType: 'dog',
-      template: '一只开心的狗狗在草地上打滚撒娇，四脚朝天，露出肚皮，表情十分享受'
-    },
-    {
-      title: '猫咪洗脸',
-      petType: 'cat',
-      template: '一只优雅的橘猫坐在阳光下，用爪子认真地洗脸，动作轻柔可爱'
-    },
-    {
-      title: '猫咪伸懒腰',
-      petType: 'cat',
-      template: '一只慵懒的猫咪刚睡醒，站起身来伸懒腰，背部弓起，前爪向前拉伸'
-    },
-    {
-      title: '猫咪追毛线球',
-      petType: 'cat',
-      template: '一只好奇的猫咪在追逐滚动的毛线球，眼神专注，动作轻盈敏捷'
-    },
-    {
-      title: '猫咪蹭腿撒娇',
-      petType: 'cat',
-      template: '一只粘人的小猫咪在主人腿边蹭来蹭去，尾巴竖起来轻轻摆动，发出呼噜声'
-    },
-    {
-      title: '人物挥手',
-      petType: 'human',
-      template: '一个友好的人物面带微笑，抬起手热情地挥手打招呼，眼神明亮'
-    },
-    {
-      title: '人物走路',
-      petType: 'human',
-      template: '一个自信的人物在走路，步伐稳健，姿态自然，表情轻松'
-    },
-    {
-      title: '人物跳舞',
-      petType: 'human',
-      template: '一个开心的人物在欢快地跳舞，动作流畅，充满活力和节奏感'
     }
   ];
   
@@ -1391,7 +1328,6 @@ export default function VideoGenerator() {
                   <TabsTrigger value="images" className="flex-1">参考图片</TabsTrigger>
                   <TabsTrigger value="avatar" className="flex-1">数字人</TabsTrigger>
                   <TabsTrigger value="avatar-voice" className="flex-1">图片口播</TabsTrigger>
-                  <TabsTrigger value="motion-copy" className="flex-1">动作模仿</TabsTrigger>
                   <TabsTrigger value="image-gen" className="flex-1">图片生成</TabsTrigger>
                 </TabsList>
                 
@@ -1415,15 +1351,6 @@ export default function VideoGenerator() {
                         >
                           <Wand2 className="w-3 h-3 mr-1" />
                           灵感模板
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => setShowPetActions(!showPetActions)}
-                          className="h-7 text-xs bg-amber-600/20 hover:bg-amber-600/30 text-amber-300"
-                        >
-                          <Smile className="w-3 h-3 mr-1" />
-                          宠物动作
                         </Button>
                       </div>
                     </div>
@@ -1452,55 +1379,6 @@ export default function VideoGenerator() {
                               </div>
                             </Button>
                           ))}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* 宠物动作选择面板 */}
-                    {showPetActions && (
-                      <div className="mb-4 p-4 bg-amber-900/20 rounded-lg border border-amber-600/30">
-                        <div className="flex justify-between items-center mb-3">
-                          <Label className="text-amber-300 text-sm font-medium">选择宠物动作</Label>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => setPetType('dog')}
-                              className={`h-7 text-xs ${petType === 'dog' ? 'bg-amber-600' : 'bg-slate-700'}`}
-                            >
-                              🐕 狗狗
-                            </Button>
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => setPetType('cat')}
-                              className={`h-7 text-xs ${petType === 'cat' ? 'bg-purple-600' : 'bg-slate-700'}`}
-                            >
-                              🐱 猫咪
-                            </Button>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                          {petActionTemplates
-                            .filter(template => template.petType === petType)
-                            .map((template, index) => (
-                              <Button
-                                key={index}
-                                variant="secondary"
-                                size="sm"
-                                onClick={() => {
-                                  insertAtCursor(template.template);
-                                  setShowPetActions(false);
-                                }}
-                                className="justify-start h-auto py-3 text-left bg-slate-700/50 hover:bg-slate-700 border border-slate-600"
-                                disabled={isGenerating}
-                              >
-                                <div className="text-left">
-                                  <p className="text-white font-medium text-sm">{template.title}</p>
-                                  <p className="text-slate-400 text-xs line-clamp-2">{template.template}</p>
-                                </div>
-                              </Button>
-                            ))}
                         </div>
                       </div>
                     )}
@@ -1852,95 +1730,6 @@ export default function VideoGenerator() {
                       )}
                     </div>
                   </div>
-                  
-                  {/* 动作模仿功能（即梦模式）*/}
-                  <Card className="p-4 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-amber-500/30">
-                    <div className="flex items-start gap-3">
-                      <RefreshCw className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
-                      <div className="flex-1">
-                        <h3 className="text-white font-medium mb-1">🎬 动作模仿（即梦模式）</h3>
-                        <p className="text-sm text-slate-300 mb-3">
-                          上传参考图片，让AI模仿图片中的动作来生成视频！
-                        </p>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-                          <Button
-                            variant={petType === 'dog' ? 'default' : 'secondary'}
-                            onClick={() => setPetType('dog')}
-                            className={`h-12 text-sm ${
-                              petType === 'dog' 
-                                ? 'bg-gradient-to-r from-amber-600 to-orange-600' 
-                                : 'bg-slate-700/50 hover:bg-slate-600/50'
-                            }`}
-                            disabled={isGenerating}
-                          >
-                            🐕 狗狗模仿
-                          </Button>
-                          <Button
-                            variant={petType === 'cat' ? 'default' : 'secondary'}
-                            onClick={() => setPetType('cat')}
-                            className={`h-12 text-sm ${
-                              petType === 'cat' 
-                                ? 'bg-gradient-to-r from-purple-600 to-pink-600' 
-                                : 'bg-slate-700/50 hover:bg-slate-600/50'
-                            }`}
-                            disabled={isGenerating}
-                          >
-                            🐱 猫咪模仿
-                          </Button>
-                          <Button
-                            variant={petType === 'human' ? 'default' : 'secondary'}
-                            onClick={() => setPetType('human')}
-                            className={`h-12 text-sm ${
-                              petType === 'human' 
-                                ? 'bg-gradient-to-r from-blue-600 to-cyan-600' 
-                                : 'bg-slate-700/50 hover:bg-slate-600/50'
-                            }`}
-                            disabled={isGenerating}
-                          >
-                            🧑 人物模仿
-                          </Button>
-                        </div>
-                        <Button
-                          onClick={() => {
-                            let finalPrompt = '';
-                            
-                            if (firstFrameUrl) {
-                              finalPrompt += `@首帧 模仿图片中的动作，`;
-                            }
-                            
-                            const defaultAction = petType === 'dog' 
-                              ? '一只可爱的狗狗在草地上欢快地玩耍，模仿图片中的动作，活泼可爱'
-                              : petType === 'cat'
-                              ? '一只优雅的猫咪在阳光下悠闲地走着，模仿图片中的动作，姿态轻盈'
-                              : '一个自信的人物在走路，模仿图片中的动作，面带微笑，自然大方';
-                            
-                            finalPrompt += defaultAction;
-                            setPrompt(finalPrompt);
-                            handleGenerate();
-                          }}
-                          disabled={isGenerating || !firstFrameUrl}
-                          className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white"
-                        >
-                          {isGenerating ? (
-                            <>
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              生成中...
-                            </>
-                          ) : (
-                            <>
-                              <RefreshCw className="w-4 h-4 mr-2" />
-                              模仿动作生成视频
-                            </>
-                          )}
-                        </Button>
-                        {!firstFrameUrl && (
-                          <p className="text-amber-400 text-xs text-center mt-2">
-                            ⚠️ 请先在上方上传首帧参考图片
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </Card>
                 </TabsContent>
                 
                 <TabsContent value="avatar" className="mt-4 space-y-4">
