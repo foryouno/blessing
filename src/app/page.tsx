@@ -68,8 +68,8 @@ export default function VideoGenerator() {
   const calculateRealDurationFromText = (text: string): number => {
     const chineseChars = text.replace(/[^\u4e00-\u9fa5]/g, '').length;
     const totalChars = text.length;
-    // 混合内容：中文字符按3字/秒，其他字符按5字符/秒
-    return Math.ceil((chineseChars / 3) + ((totalChars - chineseChars) / 5));
+    // 混合内容：中文字符按4字/秒，其他字符按5字符/秒
+    return Math.ceil((chineseChars / 4) + ((totalChars - chineseChars) / 5));
   };
   
   // 根据文字长度计算单个视频的合法时长（限制在5-12秒）
