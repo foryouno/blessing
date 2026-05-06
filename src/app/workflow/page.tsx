@@ -193,9 +193,6 @@ const RATIOS = [
   { value: '4:3', label: '4:3' }
 ];
 
-// 生成唯一ID
-const generateId = () => Math.random().toString(36).substr(2, 9);
-
 export default function WorkflowBuilder() {
   const [nodes, setNodes] = useState<WorkflowNode[]>([]);
   const [connections, setConnections] = useState<WorkflowConnection[]>([]);
@@ -210,9 +207,21 @@ export default function WorkflowBuilder() {
   const [runProgress, setRunProgress] = useState(0);
   const [outputVideoUrl, setOutputVideoUrl] = useState<string | null>(null);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [isClient, setIsClient] = useState(false);
   
   const canvasRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+
+  // 确保只在客户端执行
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // 生成唯一ID - 只在客户端使用
+  const generateId = useCallback(() => {
+    if (!isClient) return 'temp-id';
+    return Math.random().toString(36).substr(2, 9);
+  }, [isClient]);
 
   // 添加节点
   const addNode = (type: NodeType) => {
@@ -220,8 +229,8 @@ export default function WorkflowBuilder() {
     const newNode: WorkflowNode = {
       id: generateId(),
       type,
-      x: 100 + Math.random() * 200,
-      y: 100 + Math.random() * 200,
+      x: isClient ? 100 + Math.random() * 200 : 150,
+      y: isClient ? 100 + Math.random() * 200 : 150,
       config: { ...nodeType.defaultConfig }
     };
     setNodes([...nodes, newNode]);
@@ -351,6 +360,7 @@ export default function WorkflowBuilder() {
 
   // 保存工作流
   const saveWorkflow = () => {
+    if (!isClient) return;
     const workflow = { nodes, connections, createdAt: new Date().toISOString() };
     const dataStr = JSON.stringify(workflow, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
@@ -453,6 +463,15 @@ export default function WorkflowBuilder() {
       setSelectedNode(null);
     }
   };
+
+  // 只在客户端渲染完整内容
+  if (!isClient) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-background">
+        <div className="text-muted-foreground">加载中...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen bg-background">
