@@ -36,6 +36,8 @@ interface ImageHistoryItem {
   createdAt: string;
 }
 
+import Link from 'next/link';
+
 export default function VideoGenerator() {
   const [prompt, setPrompt] = useState('');
   const [duration, setDuration] = useState(5);
@@ -1178,6 +1180,16 @@ export default function VideoGenerator() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       <div className="container mx-auto px-4 py-8">
+        {/* 导航链接 */}
+        <div className="mb-6 flex justify-center">
+          <Link href="/avatar-talk">
+            <Button variant="secondary" className="gap-2 bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300">
+              <Mic className="w-4 h-4" />
+              图片口播页面
+            </Button>
+          </Link>
+        </div>
+        
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
             <Video className="w-12 h-12 text-purple-400" />
