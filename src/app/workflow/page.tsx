@@ -342,19 +342,51 @@ export default function WorkflowBuilder() {
     setOutputVideoUrl(null);
     
     try {
-      // 模拟工作流执行
-      for (let i = 0; i <= 100; i += 10) {
-        await new Promise(resolve => setTimeout(resolve, 300));
-        setRunProgress(i);
+      // 1. 找到 Seedance 节点
+      const seedanceNode = nodes.find(n => n.type === 'seedance');
+      if (!seedanceNode) {
+        alert('请先添加 Seedance 视频模型节点！');
+        setIsRunning(false);
+        return;
       }
       
-      // 模拟输出视频
-      setOutputVideoUrl('https://example.com/output.mp4');
+      const { prompt, duration, ratio, model } = seedanceNode.config;
+      setRunProgress(10);
+      
+      // 2. 调用视频生成 API
+      console.log('开始生成视频...');
+      console.log('提示词:', prompt);
+      console.log('时长:', duration, '秒');
+      
+      const response = await fetch('/api/generate-video', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: prompt || '一个美丽的自然风景，高质量，4K分辨率',
+          duration: duration || 8,
+          ratio: ratio || '16:9',
+          model: model || 'doubao-seedance-1-5-pro-251215'
+        })
+      });
+      
+      setRunProgress(50);
+      
+      const data = await response.json();
+      setRunProgress(80);
+      
+      if (!response.ok) {
+        throw new Error(data.error || '视频生成失败');
+      }
+      
+      console.log('视频生成成功！', data.videoUrl);
+      setOutputVideoUrl(data.videoUrl);
+      setRunProgress(100);
+      
     } catch (error) {
       console.error('工作流执行失败:', error);
+      alert(error instanceof Error ? error.message : '执行失败');
     } finally {
       setIsRunning(false);
-      setRunProgress(100);
     }
   };
 
