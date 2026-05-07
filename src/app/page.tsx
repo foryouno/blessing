@@ -2767,7 +2767,36 @@ export default function VideoGenerator() {
                     </>
                   )}
 
-
+                  <div>
+                    <Label className="text-white text-sm font-medium mb-2 block">生成模型</Label>
+                    <Select 
+                      value={model} 
+                      onValueChange={(newModel) => {
+                        setModel(newModel);
+                      }} 
+                      disabled={isGenerating}
+                    >
+                      <SelectTrigger className="bg-slate-700/50 border-slate-600 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-800 border-slate-600">
+                        <SelectItem value="doubao-seedance-1-5-pro-251215">
+                          <div className="flex flex-col">
+                            <span className="font-medium">Doubao Seedance 1.5 Pro</span>
+                            <span className="text-sm text-green-400">✨ 稳定可用</span>
+                            <span className="text-xs text-slate-500">火山引擎 · 视频生成</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="doubao-seed-tts">
+                          <div className="flex flex-col">
+                            <span className="font-medium">Doubao Seed TTS</span>
+                            <span className="text-sm text-slate-400">🎤 语音合成</span>
+                            <span className="text-xs text-slate-500">豆包大模型 · 专业人声</span>
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               )}
 
