@@ -1,41 +1,33 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-import { Loader2, Upload, X, Mic, User, Video, ArrowLeft } from 'lucide-react';
+import { Upload, X, Mic, User, ArrowLeft, Copy, Check, History } from 'lucide-react';
 import Link from 'next/link';
 
+interface ScriptHistoryItem {
+  id: string;
+  voiceText: string;
+  videoPrompt: string;
+  duration: number;
+  timestamp: number;
+}
+
 export default function AvatarTalkPage() {
-  // 模型选择状态
-  const [model, setModel] = useState('doubao-seedance-1-5-pro-251215');
   // 图片说话功能状态
   const [imageTalkImageUrl, setImageTalkImageUrl] = useState<string | null>(null);
   const [imageTalkVoiceText, setImageTalkVoiceText] = useState('');
   const [imageTalkVideoPrompt, setImageTalkVideoPrompt] = useState('一位专业的数字人正在认真朗读稿件，表情自然，手势动作适中，背景简洁大方');
   const [imageTalkDuration, setImageTalkDuration] = useState(12);
-  const [imageTalkRatio, setImageTalkRatio] = useState('16:9');
   const [imageTalkAutoDuration, setImageTalkAutoDuration] = useState(true);
   const [isUploadingImageTalk, setIsUploadingImageTalk] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isGeneratingImageTalkBatch, setIsGeneratingImageTalkBatch] = useState(false);
-  const [imageTalkBatchProgress, setImageTalkBatchProgress] = useState(0);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  
-  // 首帧图片状态
-  const [firstFrameUrl, setFirstFrameUrl] = useState<string | null>(null);
-  // 提示词
-  const [prompt, setPrompt] = useState('');
-  // 视频时长
-  const [duration, setDuration] = useState(12);
-  // 视频比例
-  const [ratio, setRatio] = useState('16:9');
+  const [history, setHistory] = useState<ScriptHistoryItem[]>([]);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   
   // Refs
   const imageTalkInputRef = useRef<HTMLInputElement>(null);
@@ -47,6 +39,18 @@ export default function AvatarTalkPage() {
     { title: '产品介绍', icon: '📦', template: '一位专业的产品经理，正在介绍新产品，表情兴奋，手势有力，背景有产品展示' },
     { title: '日常聊天', icon: '☕', template: '一位亲切的朋友，坐在温馨的客厅里，轻松聊天，表情自然，动作随意' },
     { title: '正式演讲', icon: '🎤', template: '一位专业的演讲者，站在舞台上，进行正式演讲，表情坚定，手势有力' }
+  ];
+
+  // 图片说话快捷模板
+  const imageTalkTemplates = [
+    { title: '专业新闻主播', voicePrompt: '', videoPrompt: '一位专业的新闻主播正在电视台直播间，认真严肃，眼神坚定，动作专业' },
+    { title: '亲切知识博主', voicePrompt: '', videoPrompt: '一位亲切的知识博主坐在温馨书房，微笑讲解，眼神友好，动作自然' },
+    { title: '严肃商业演讲', voicePrompt: '', videoPrompt: '一位商务人士在会议室做演讲，自信有力，手势得体，着装正式' },
+    { title: '活泼产品介绍', voicePrompt: '', videoPrompt: '一位活泼的产品经理在展示产品，热情洋溢，充满活力，感染力强' },
+    { title: '温柔故事讲述', voicePrompt: '', videoPrompt: '一位温柔的讲述者在安静的环境中，语气温和，眼神柔和，氛围宁静' },
+    { title: '激情销售推广', voicePrompt: '', videoPrompt: '一位充满激情的销售在推广产品，充满感染力，肢体语言丰富，热情高涨' },
+    { title: '自信培训讲师', voicePrompt: '', videoPrompt: '一位自信的培训讲师在培训室，专业权威，条理清晰，富有说服力' },
+    { title: '可爱儿童主播', voicePrompt: '', videoPrompt: '一位可爱的小主播在演播室，天真活泼，笑容灿烂，充满童趣' }
   ];
 
   // 智能时长计算（根据文本长度）- 支持中英文混合
@@ -98,33 +102,11 @@ export default function AvatarTalkPage() {
         currentDuration = 0;
       }
       
-      // 如果单个句子就超过最大时长，需要强行截断
-      if (sentenceDuration > maxSecondsPerSegment) {
-        // 将长句子按逗号或空格分割
-        const parts = sentence.split(/(?<=[，,])/).filter(p => p.trim());
-        let tempSegment = '';
-        let tempDuration = 0;
-        
-        for (const part of parts) {
-          const partDuration = calculateRealDurationFromText(part);
-          if (tempDuration + partDuration > maxSecondsPerSegment && tempSegment.trim()) {
-            segments.push(tempSegment.trim());
-            tempSegment = '';
-            tempDuration = 0;
-          }
-          tempSegment += part;
-          tempDuration += partDuration;
-        }
-        
-        if (tempSegment.trim()) {
-          segments.push(tempSegment.trim());
-        }
-      } else {
-        currentSegment += sentence;
-        currentDuration += sentenceDuration;
-      }
+      currentSegment += sentence;
+      currentDuration += sentenceDuration;
     }
     
+    // 添加最后一段
     if (currentSegment.trim()) {
       segments.push(currentSegment.trim());
     }
@@ -132,512 +114,347 @@ export default function AvatarTalkPage() {
     return segments;
   };
 
-  // 提取视频最后一帧作为图片
-  const extractVideoLastFrame = async (videoUrl: string): Promise<string | null> => {
-    return new Promise((resolve, reject) => {
-      try {
-        const video = document.createElement('video');
-        video.crossOrigin = 'anonymous';
-        video.src = videoUrl;
-        
-        video.addEventListener('loadedmetadata', () => {
-          try {
-            video.currentTime = video.duration;
-          } catch (err) {
-            console.error('设置视频时间失败:', err);
-            // 如果设置时间失败，尝试用最后0.5秒
-            try {
-              video.currentTime = Math.max(0, video.duration - 0.5);
-            } catch (err2) {
-              console.error('设置备用时间也失败:', err2);
-            }
-          }
-        });
-        
-        video.addEventListener('seeked', () => {
-          try {
-            const canvas = document.createElement('canvas');
-            canvas.width = video.videoWidth || 1920;
-            canvas.height = video.videoHeight || 1080;
-            const ctx = canvas.getContext('2d');
-            
-            if (ctx) {
-              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-              const dataUrl = canvas.toDataURL('image/png');
-              resolve(dataUrl);
-            } else {
-              resolve(null);
-            }
-          } catch (err) {
-            console.error('Canvas绘制失败:', err);
-            resolve(null);
-          }
-        });
-        
-        video.addEventListener('error', () => {
-          console.error('视频加载失败');
-          resolve(null);
-        });
-        
-        // 超时保护
-        setTimeout(() => {
-          console.warn('提取最后一帧超时');
-          resolve(null);
-        }, 10000);
-      } catch (err) {
-        console.error('提取最后一帧异常:', err);
-        resolve(null);
+  // 图片上传处理
+  const handleImageTalkImageUpload = async (file: File) => {
+    setIsUploadingImageTalk(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await fetch('/api/upload-image', {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (!response.ok) {
+        throw new Error('图片上传失败');
       }
-    });
+      
+      const data = await response.json();
+      setImageTalkImageUrl(data.imageUrl);
+    } catch (err) {
+      console.error('图片上传失败:', err);
+      alert('图片上传失败，请重试');
+    } finally {
+      setIsUploadingImageTalk(false);
+    }
   };
 
   // 保存到历史记录
-  const saveToHistory = (item: any) => {
-    if (typeof window === 'undefined') return;
+  const saveToHistory = (voiceText: string, videoPrompt: string, duration: number) => {
+    const newItem: ScriptHistoryItem = {
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      voiceText,
+      videoPrompt,
+      duration,
+      timestamp: Date.now()
+    };
     
-    try {
-      const history = JSON.parse(localStorage.getItem('videoHistory') || '[]');
-      const newItem = {
-        ...item,
-        id: Date.now().toString(36) + Math.random().toString(36).substr(2),
-        createdAt: new Date().toISOString(),
-      };
-      history.unshift(newItem);
-      localStorage.setItem('videoHistory', JSON.stringify(history.slice(0, 50)));
-    } catch (err) {
-      console.error('保存历史记录失败:', err);
+    const updatedHistory = [newItem, ...history].slice(0, 50);
+    setHistory(updatedHistory);
+    
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('avatar-talk-history', JSON.stringify(updatedHistory));
     }
   };
 
-  // 生成视频
-  const handleGenerate = async () => {
-    if (!prompt.trim()) return;
-    
-    setIsGenerating(true);
-    setError(null);
-    setVideoUrl(null);
-    
+  // 从历史记录加载
+  const loadFromHistory = (item: ScriptHistoryItem) => {
+    setImageTalkVoiceText(item.voiceText);
+    setImageTalkVideoPrompt(item.videoPrompt);
+    setImageTalkDuration(item.duration);
+  };
+
+  // 复制到剪贴板
+  const copyToClipboard = async (text: string, id: string) => {
     try {
-      const response = await fetch('/api/generate-video', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          prompt,
-          duration,
-          ratio,
-          generateAudio: true,
-          firstFrameUrl,
-          model,
-        }),
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || '视频生成失败');
-      }
-      
-      setVideoUrl(data.videoUrl);
-      
-      // 保存到历史记录
-      saveToHistory({
-        videoUrl: data.videoUrl,
-        prompt,
-        duration,
-        ratio,
-        generateAudio: true,
-        model,
-        firstFrameUrl,
-      });
-      
+      await navigator.clipboard.writeText(text);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '生成视频时发生错误');
-    } finally {
-      setIsGenerating(false);
+      console.error('复制失败:', err);
     }
+  };
+
+  // 自动时长计算监听
+  useEffect(() => {
+    if (imageTalkAutoDuration && imageTalkVoiceText) {
+      const validDuration = calculateValidDurationFromText(imageTalkVoiceText);
+      setImageTalkDuration(validDuration);
+    }
+  }, [imageTalkVoiceText, imageTalkAutoDuration]);
+
+  // 从localStorage加载历史记录
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedHistory = localStorage.getItem('avatar-talk-history');
+      if (savedHistory) {
+        setHistory(JSON.parse(savedHistory));
+      }
+    }
+  }, []);
+
+  // 处理文本变化，自动保存
+  const handleGenerate = () => {
+    if (!imageTalkVoiceText.trim()) {
+      alert('请输入语音文本');
+      return;
+    }
+
+    // 计算实际时长和分段
+    const realDuration = calculateRealDurationFromText(imageTalkVoiceText);
+    const segments = splitTextIntoSegments(imageTalkVoiceText);
+    
+    // 保存到历史记录
+    saveToHistory(imageTalkVoiceText, imageTalkVideoPrompt, imageTalkDuration);
+    
+    alert(`✅ 脚本已生成并保存！\n\n预计时长：${realDuration}秒\n分段数量：${segments.length}段`);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6">
-      <div className="max-w-4xl mx-auto">
-        {/* 返回按钮 */}
+    <div className="min-h-screen bg-gradient-to-b from-muted/50 to-background">
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
+        {/* 顶部导航 */}
         <div className="mb-6">
-          <Link href="/">
-            <Button variant="secondary" className="gap-2">
-              <ArrowLeft className="w-4 h-4" />
-              返回主页面
-            </Button>
+          <Link href="/" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-4">
+            <ArrowLeft className="w-4 h-4" />
+            返回首页
           </Link>
-        </div>
-        
-        {/* 页面标题 */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">
-            <Mic className="w-10 h-10 inline mr-3 text-cyan-400" />
-            图片口播
-          </h1>
-          <p className="text-slate-400">上传图片，让图片中的人物开口说话！</p>
-        </div>
-        
-        {/* 错误提示 */}
-        {error && (
-          <Card className="p-4 mb-6 bg-red-500/10 border-red-500/30">
-            <p className="text-red-400">{error}</p>
-          </Card>
-        )}
-        
-        {/* 视频预览 */}
-        {videoUrl && (
-          <Card className="p-4 mb-6 bg-slate-800/50 border-slate-700">
-            <h3 className="text-white font-medium mb-4 flex items-center gap-2">
-              <Video className="w-5 h-5 text-green-400" />
-              生成的视频
-            </h3>
-            <video
-              src={videoUrl}
-              controls
-              className="w-full rounded-lg"
-            />
-          </Card>
-        )}
-        
-        {/* 图片说话功能 */}
-        <Card className="p-6 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border-cyan-500/30">
-          <div className="space-y-6">
-            {/* 独立的图片上传区域 */}
+          
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <Mic className="w-6 h-6 text-primary" />
+            </div>
             <div>
-              <Label className="text-white text-sm font-medium mb-3 block">
-                1. 上传图片
-              </Label>
+              <h1 className="text-3xl font-bold">数字人口播</h1>
+              <p className="text-muted-foreground">语音文本 + 视频画面提示词</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid lg:grid-cols-2 gap-6">
+          {/* 左侧：输入区域 */}
+          <div className="space-y-4">
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <User className="w-5 h-5" />
+                1. 上传图片（可选）
+              </h2>
+              
               {!imageTalkImageUrl ? (
-                <div
-                  onClick={() => imageTalkInputRef.current?.click()}
-                  className="border-2 border-dashed border-slate-600 rounded-lg p-8 text-center cursor-pointer hover:border-slate-500 hover:bg-slate-800/50 transition-all"
-                >
+                <div className="flex flex-col items-center gap-4">
+                  <div
+                    className="border-2 border-dashed border-border rounded-lg p-8 cursor-pointer hover:border-primary/50 transition-colors w-full text-center"
+                    onClick={() => imageTalkInputRef.current?.click()}
+                  >
+                    <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                    <p className="text-muted-foreground">点击或拖拽上传图片</p>
+                  </div>
                   <input
                     ref={imageTalkInputRef}
                     type="file"
                     accept="image/*"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      
-                      setIsUploadingImageTalk(true);
-                      
-                      try {
-                        const formData = new FormData();
-                        formData.append('file', file);
-                        const response = await fetch('/api/upload-image', {
-                          method: 'POST',
-                          body: formData,
-                        });
-                        const data = await response.json();
-                        if (!response.ok) {
-                          throw new Error(data.error || '上传图片失败');
-                        }
-                        setImageTalkImageUrl(data.imageUrl);
-                      } catch (err) {
-                        console.error('上传失败:', err);
-                      } finally {
-                        setIsUploadingImageTalk(false);
-                      }
-                    }}
-                    disabled={isUploadingImageTalk}
                     className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleImageTalkImageUpload(file);
+                    }}
                   />
-                  {isUploadingImageTalk ? (
-                    <>
-                      <Loader2 className="w-12 h-12 mx-auto mb-3 text-cyan-400 animate-spin" />
-                      <p className="text-cyan-400">上传中...</p>
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-12 h-12 mx-auto mb-3 text-slate-500" />
-                      <p className="text-slate-400">
-                        点击上传你想让说话的图片
-                      </p>
-                      <p className="text-slate-600 text-xs mt-1">
-                        支持 JPG、PNG 格式
-                      </p>
-                    </>
-                  )}
                 </div>
               ) : (
                 <div className="relative">
                   <img
                     src={imageTalkImageUrl}
-                    alt="要说话的图片"
-                    className="w-full h-64 object-cover rounded-lg"
+                    alt="首帧"
+                    className="w-full rounded-lg"
                   />
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => {
-                      setImageTalkImageUrl(null);
-                      if (imageTalkInputRef.current) {
-                        imageTalkInputRef.current.value = '';
-                      }
-                    }}
-                    className="absolute top-2 right-2"
+                  <button
+                    onClick={() => setImageTalkImageUrl(null)}
+                    className="absolute top-2 right-2 p-1 bg-black/50 rounded-full hover:bg-black/70 transition-colors"
                   >
-                    <X className="w-4 h-4" />
-                  </Button>
+                    <X className="w-4 h-4 text-white" />
+                  </button>
                 </div>
               )}
-            </div>
-            
-            {/* 语音文本输入 */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <Label className="text-white text-sm font-medium">
-                  2. 输入语音文本（TTS）
-                </Label>
-                {imageTalkVoiceText.trim() && (
-                  <span className="text-xs text-slate-400">
-                    {imageTalkVoiceText.length} 字 · 约 {calculateRealDurationFromText(imageTalkVoiceText)} 秒
-                  </span>
-                )}
-              </div>
-              <Textarea
-                placeholder="输入你想让数字人说的话...&#10;&#10;示例：&#10;大家好，我是今天的主播，很高兴为大家播报新闻！"
-                value={imageTalkVoiceText}
-                onChange={(e) => setImageTalkVoiceText(e.target.value)}
-                className="min-h-[100px] bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500 resize-none text-lg"
-                disabled={isGenerating || isGeneratingImageTalkBatch}
-              />
-            </div>
-            
-            {/* 视频画面提示词输入 */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <Label className="text-white text-sm font-medium">
-                  3. 输入视频画面提示词
-                </Label>
-              </div>
-              <Textarea
-                placeholder="描述视频画面内容...&#10;&#10;示例：&#10;一位专业的新闻主播，坐在演播室里，表情自然，手势动作适中"
-                value={imageTalkVideoPrompt}
-                onChange={(e) => setImageTalkVideoPrompt(e.target.value)}
-                className="min-h-[80px] bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500 resize-none"
-                disabled={isGenerating || isGeneratingImageTalkBatch}
-              />
+            </Card>
+
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <Mic className="w-5 h-5" />
+                2. 语音文本（TTS）
+              </h2>
               
-              {/* 快捷模板按钮 */}
-              <div className="mt-3 flex flex-wrap gap-2">
-                {promptTemplates.map((template, index) => (
+              <div className="space-y-3">
+                <div>
+                  <Label>输入你想让数字人说的话</Label>
+                  <Textarea
+                    value={imageTalkVoiceText}
+                    onChange={(e) => setImageTalkVoiceText(e.target.value)}
+                    placeholder="请输入语音文本..."
+                    className="min-h-[150px] mt-1"
+                  />
+                  {imageTalkVoiceText && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      预计时长：{calculateRealDurationFromText(imageTalkVoiceText)}秒
+                      {calculateRealDurationFromText(imageTalkVoiceText) > 12 && 
+                        `（建议分 ${splitTextIntoSegments(imageTalkVoiceText).length} 段）`
+                      }
+                    </p>
+                  )}
+                </div>
+                
+                <div>
+                  <Label>视频画面提示词</Label>
+                  <Textarea
+                    value={imageTalkVideoPrompt}
+                    onChange={(e) => setImageTalkVideoPrompt(e.target.value)}
+                    placeholder="请输入视频画面提示词..."
+                    className="min-h-[100px] mt-1"
+                  />
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold mb-4">3. 快捷模板</h2>
+              
+              <div className="grid grid-cols-2 gap-2">
+                {imageTalkTemplates.map((template, idx) => (
                   <Button
-                    key={index}
+                    key={idx}
                     variant="secondary"
                     size="sm"
-                    onClick={() => setImageTalkVideoPrompt(template.template)}
-                    disabled={isGenerating || isGeneratingImageTalkBatch}
-                    className="text-xs bg-slate-700/50 hover:bg-slate-600/50 text-white"
+                    onClick={() => {
+                      setImageTalkVideoPrompt(template.videoPrompt);
+                    }}
                   >
-                    {template.icon}
                     {template.title}
                   </Button>
                 ))}
               </div>
-            </div>
-            
-            {/* 自动时长开关 */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Switch
-                  id="image-talk-auto-duration"
-                  checked={imageTalkAutoDuration}
-                  onCheckedChange={setImageTalkAutoDuration}
-                  disabled={isGenerating || isGeneratingImageTalkBatch}
-                />
-                <Label htmlFor="image-talk-auto-duration" className="text-white text-sm">
-                  自动匹配时长
-                </Label>
-              </div>
-              {imageTalkVoiceText.trim() && calculateRealDurationFromText(imageTalkVoiceText) > 12 && (
-                <span className="text-xs text-amber-400">
-                  ⚠️ 文字较长，将分 {Math.ceil(calculateRealDurationFromText(imageTalkVoiceText) / 12)} 段生成
-                </span>
-              )}
-            </div>
-            
-            {/* 视频比例设置 */}
-            <div>
-              <Label className="text-white text-sm font-medium mb-2 block">
-                视频比例
-              </Label>
-              <Select 
-                value={imageTalkRatio} 
-                onValueChange={setImageTalkRatio} 
-                disabled={isGenerating || isGeneratingImageTalkBatch}
-              >
-                <SelectTrigger className="bg-slate-700/50 border-slate-600 text-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-slate-800 border-slate-600">
-                  <SelectItem value="16:9">16:9 (横屏)</SelectItem>
-                  <SelectItem value="9:16">9:16 (竖屏)</SelectItem>
-                  <SelectItem value="1:1">1:1 (方形)</SelectItem>
-                  <SelectItem value="4:3">4:3 (传统)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            {/* 视频时长设置（仅在非自动模式下显示） */}
-            {!imageTalkAutoDuration && (
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <Label className="text-white text-sm font-medium">
-                    视频时长
-                  </Label>
-                  <span className="text-cyan-400 text-sm font-mono">
-                    {imageTalkDuration}秒
-                  </span>
+            </Card>
+
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold mb-4">4. 时长设置</h2>
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label>自动匹配文字时长</Label>
+                  <Switch
+                    checked={imageTalkAutoDuration}
+                    onCheckedChange={setImageTalkAutoDuration}
+                  />
                 </div>
-                <Slider
-                  value={[imageTalkDuration]}
-                  onValueChange={(value) => setImageTalkDuration(value[0])}
-                  min={5}
-                  max={12}
-                  step={1}
-                  className="w-full"
-                  disabled={isGenerating || isGeneratingImageTalkBatch}
-                />
-                <div className="flex justify-between mt-1 text-xs text-slate-500">
-                  <span>5秒</span>
-                  <span>12秒</span>
-                </div>
+                
+                {!imageTalkAutoDuration && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <Label>视频时长</Label>
+                      <span className="text-sm text-muted-foreground">{imageTalkDuration} 秒</span>
+                    </div>
+                    <Slider
+                      value={[imageTalkDuration]}
+                      onValueChange={([value]) => setImageTalkDuration(value)}
+                      min={5}
+                      max={12}
+                      step={1}
+                    />
+                  </div>
+                )}
               </div>
-            )}
-            
-            {/* 生成按钮 */}
+            </Card>
+
             <Button
-              onClick={async () => {
-                if (!imageTalkImageUrl || !imageTalkVoiceText.trim()) return;
-                
-                const totalDuration = calculateRealDurationFromText(imageTalkVoiceText);
-                
-                if (totalDuration <= 12) {
-                  // 短文本：单次生成
-                  setFirstFrameUrl(imageTalkImageUrl);
-                  // 组合视频画面提示词 + 语音文本
-                  const combinedPrompt = `${imageTalkVideoPrompt}，正在说：${imageTalkVoiceText}`;
-                  setPrompt(combinedPrompt);
-                  setDuration(imageTalkAutoDuration ? calculateValidDurationFromText(imageTalkVoiceText) : imageTalkDuration);
-                  setRatio(imageTalkRatio);
-                  handleGenerate();
-                } else {
-                  // 长文本：分批次生成
-                  setIsGeneratingImageTalkBatch(true);
-                  setImageTalkBatchProgress(0);
-                  setError(null);
-                  setVideoUrl(null);
-                  
-                  try {
-                    const segments = splitTextIntoSegments(imageTalkVoiceText, 12);
-                    const generatedVideos: string[] = [];
-                    
-                    // 第一个视频用用户上传的图片
-                    let currentFirstFrame = imageTalkImageUrl;
-                    
-                    for (let i = 0; i < segments.length; i++) {
-                      const segmentDuration = calculateValidDurationFromText(segments[i]);
-                      // 组合视频画面提示词 + 语音文本片段
-                      const combinedPrompt = `${imageTalkVideoPrompt}，正在说：${segments[i]}`;
-                      
-                      const response = await fetch('/api/generate-video', {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                          prompt: combinedPrompt,
-                          duration: segmentDuration,
-                          ratio: imageTalkRatio,
-                          generateAudio: true,
-                          firstFrameUrl: currentFirstFrame,
-                          model,
-                        }),
-                      });
-                      
-                      const data = await response.json();
-                      
-                      if (!response.ok) {
-                        throw new Error(data.error || `第 ${i + 1} 段视频生成失败`);
-                      }
-                      
-                      generatedVideos.push(data.videoUrl);
-                      
-                      // 保存到历史记录
-                      saveToHistory({
-                        videoUrl: data.videoUrl,
-                        prompt: combinedPrompt,
-                        duration: segmentDuration,
-                        ratio: imageTalkRatio,
-                        generateAudio: true,
-                        model,
-                        firstFrameUrl: currentFirstFrame,
-                      });
-                      
-                      // 如果不是最后一个片段，提取当前视频的最后一帧作为下一个的首帧
-                      if (i < segments.length - 1) {
-                        try {
-                          const lastFrameUrl = await extractVideoLastFrame(data.videoUrl);
-                          if (lastFrameUrl) {
-                            currentFirstFrame = lastFrameUrl;
-                          }
-                        } catch (extractErr) {
-                          console.error('提取最后一帧失败，继续使用当前首帧:', extractErr);
-                        }
-                      }
-                    }
-                    
-                    setImageTalkBatchProgress(100);
-                    
-                    // 显示第一个生成的视频
-                    if (generatedVideos.length > 0) {
-                      setVideoUrl(generatedVideos[0]);
-                    }
-                    
-                  } catch (err) {
-                    setError(err instanceof Error ? err.message : '分批次生成视频时发生错误');
-                  } finally {
-                    setIsGeneratingImageTalkBatch(false);
-                    setImageTalkBatchProgress(0);
-                  }
-                }
-              }}
-              disabled={isGenerating || !imageTalkImageUrl || !imageTalkVoiceText.trim() || isUploadingImageTalk || isGeneratingImageTalkBatch}
-              className="w-full py-6 text-lg font-semibold bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white"
+              size="lg"
+              className="w-full"
+              onClick={handleGenerate}
             >
-              {isGenerating || isGeneratingImageTalkBatch ? (
-                <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  {isGeneratingImageTalkBatch ? (
-                    <>分批次生成中 {imageTalkBatchProgress}%</>
-                  ) : (
-                    <>生成中...</>
-                  )}
-                </>
-              ) : (
-                <>
-                  <Mic className="w-5 h-5 mr-2" />
-                  {imageTalkVoiceText.trim() && calculateRealDurationFromText(imageTalkVoiceText) > 12 
-                    ? `分 ${Math.ceil(calculateRealDurationFromText(imageTalkVoiceText) / 12)} 段生成视频`
-                    : '让图片说话'
-                  }
-                </>
-              )}
+              生成并保存脚本
             </Button>
-            
-            {!imageTalkImageUrl && !isUploadingImageTalk && (
-              <p className="text-cyan-400 text-xs text-center">
-                ⚠️ 请先上传图片
-              </p>
+          </div>
+
+          {/* 右侧：历史记录 */}
+          <div className="space-y-4">
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <History className="w-5 h-5" />
+                历史记录
+              </h2>
+              
+              {history.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>暂无历史记录</p>
+                  <p className="text-sm">生成脚本后会自动保存到这里</p>
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-[600px] overflow-y-auto">
+                  {history.map((item) => (
+                    <Card key={item.id} className="p-4">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="text-sm text-muted-foreground">
+                          {new Date(item.timestamp).toLocaleString('zh-CN')}
+                        </div>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => loadFromHistory(item)}
+                          >
+                            加载
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => copyToClipboard(
+                              `语音文本：${item.voiceText}\n\n视频画面：${item.videoPrompt}`,
+                              item.id
+                            )}
+                          >
+                            {copiedId === item.id ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      <div className="text-sm space-y-2">
+                        <div>
+                          <div className="font-medium mb-1">语音文本：</div>
+                          <div className="text-muted-foreground line-clamp-2">{item.voiceText}</div>
+                        </div>
+                        <div>
+                          <div className="font-medium mb-1">视频画面：</div>
+                          <div className="text-muted-foreground line-clamp-2">{item.videoPrompt}</div>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          预计时长：{item.duration}秒
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            {/* 分段预览（如果有长文本） */}
+            {imageTalkVoiceText && calculateRealDurationFromText(imageTalkVoiceText) > 12 && (
+              <Card className="p-6">
+                <h2 className="text-xl font-semibold mb-4">分段预览</h2>
+                <div className="space-y-2">
+                  {splitTextIntoSegments(imageTalkVoiceText).map((segment, idx) => (
+                    <Card key={idx} className="p-3">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="font-medium">第 {idx + 1} 段</span>
+                        <span className="text-sm text-muted-foreground">
+                          {calculateRealDurationFromText(segment)}秒
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{segment}</p>
+                    </Card>
+                  ))}
+                </div>
+              </Card>
             )}
           </div>
-        </Card>
+        </div>
       </div>
     </div>
   );
