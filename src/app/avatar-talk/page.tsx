@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Upload, X, Mic, User, ArrowLeft, Copy, Check, History } from 'lucide-react';
 import Link from 'next/link';
 
@@ -15,6 +16,7 @@ interface ScriptHistoryItem {
   voiceText: string;
   videoPrompt: string;
   duration: number;
+  ttsModel: string;
   timestamp: number;
 }
 
@@ -25,9 +27,17 @@ export default function AvatarTalkPage() {
   const [imageTalkVideoPrompt, setImageTalkVideoPrompt] = useState('一位专业的数字人正在认真朗读稿件，表情自然，手势动作适中，背景简洁大方');
   const [imageTalkDuration, setImageTalkDuration] = useState(12);
   const [imageTalkAutoDuration, setImageTalkAutoDuration] = useState(true);
+  const [imageTalkTtsModel, setImageTalkTtsModel] = useState('doubao-seed-tts');
   const [isUploadingImageTalk, setIsUploadingImageTalk] = useState(false);
   const [history, setHistory] = useState<ScriptHistoryItem[]>([]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  
+  // TTS 模型列表
+  const ttsModels = [
+    { value: 'doubao-seed-tts', label: '豆包 Seed TTS' },
+    { value: 'doubao-tts', label: '豆包 TTS' },
+    { value: 'generic-tts', label: '通用 TTS' }
+  ];
   
   // Refs
   const imageTalkInputRef = useRef<HTMLInputElement>(null);
@@ -141,12 +151,13 @@ export default function AvatarTalkPage() {
   };
 
   // 保存到历史记录
-  const saveToHistory = (voiceText: string, videoPrompt: string, duration: number) => {
+  const saveToHistory = (voiceText: string, videoPrompt: string, duration: number, ttsModel: string) => {
     const newItem: ScriptHistoryItem = {
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
       voiceText,
       videoPrompt,
       duration,
+      ttsModel,
       timestamp: Date.now()
     };
     
@@ -163,6 +174,9 @@ export default function AvatarTalkPage() {
     setImageTalkVoiceText(item.voiceText);
     setImageTalkVideoPrompt(item.videoPrompt);
     setImageTalkDuration(item.duration);
+    if (item.ttsModel) {
+      setImageTalkTtsModel(item.ttsModel);
+    }
   };
 
   // 复制到剪贴板
@@ -206,7 +220,7 @@ export default function AvatarTalkPage() {
     const segments = splitTextIntoSegments(imageTalkVoiceText);
     
     // 保存到历史记录
-    saveToHistory(imageTalkVoiceText, imageTalkVideoPrompt, imageTalkDuration);
+    saveToHistory(imageTalkVoiceText, imageTalkVideoPrompt, imageTalkDuration, imageTalkTtsModel);
     
     alert(`✅ 脚本已生成并保存！\n\n预计时长：${realDuration}秒\n分段数量：${segments.length}段`);
   };
@@ -301,6 +315,22 @@ export default function AvatarTalkPage() {
                       }
                     </p>
                   )}
+                </div>
+                
+                <div>
+                  <Label>TTS 模型</Label>
+                  <Select value={imageTalkTtsModel} onValueChange={setImageTalkTtsModel}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="选择 TTS 模型" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ttsModels.map((model) => (
+                        <SelectItem key={model.value} value={model.value}>
+                          {model.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 
                 <div>
@@ -424,8 +454,11 @@ export default function AvatarTalkPage() {
                           <div className="font-medium mb-1">视频画面：</div>
                           <div className="text-muted-foreground line-clamp-2">{item.videoPrompt}</div>
                         </div>
-                        <div className="text-xs text-muted-foreground">
-                          预计时长：{item.duration}秒
+                        <div className="text-xs text-muted-foreground space-y-1">
+                          <div>预计时长：{item.duration}秒</div>
+                          {item.ttsModel && (
+                            <div>TTS 模型：{ttsModels.find(m => m.value === item.ttsModel)?.label || item.ttsModel}</div>
+                          )}
                         </div>
                       </div>
                     </Card>
