@@ -49,15 +49,29 @@ export default function AvatarTalkPage() {
     { title: '正式演讲', icon: '🎤', template: '一位专业的演讲者，站在舞台上，进行正式演讲，表情坚定，手势有力' }
   ];
 
-  // 智能时长计算（根据文本长度）
+  // 智能时长计算（根据文本长度）- 支持中英文混合
   const calculateRealDurationFromText = (text: string): number => {
     if (!text.trim()) return 0;
     const cleanText = text.replace(/\s/g, '');
-    // 检查是否是中文（包含中文字符）
-    const isChinese = /[\u4e00-\u9fa5]/.test(cleanText);
+    
+    // 分别统计中文字符和非中文字符
+    let chineseChars = 0;
+    let otherChars = 0;
+    
+    for (const char of cleanText) {
+      if (/[\u4e00-\u9fa5]/.test(char)) {
+        chineseChars++;
+      } else {
+        otherChars++;
+      }
+    }
+    
     // 中文：4字/秒，其他：5字符/秒
-    const estimatedDuration = isChinese ? cleanText.length / 4 : cleanText.length / 5;
-    return Math.round(estimatedDuration);
+    const chineseDuration = chineseChars / 4;
+    const otherDuration = otherChars / 5;
+    const totalDuration = chineseDuration + otherDuration;
+    
+    return Math.max(1, Math.round(totalDuration));
   };
 
   // 计算有效时长（限制在5-12秒范围内）
