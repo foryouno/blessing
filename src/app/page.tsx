@@ -1340,7 +1340,6 @@ export default function VideoGenerator() {
                   <TabsTrigger value="text" className="flex-1">文本描述</TabsTrigger>
                   <TabsTrigger value="images" className="flex-1">参考图片</TabsTrigger>
                   <TabsTrigger value="avatar" className="flex-1">数字人</TabsTrigger>
-                  <TabsTrigger value="avatar-voice" className="flex-1">图片口播</TabsTrigger>
                   <TabsTrigger value="image-gen" className="flex-1">图片生成</TabsTrigger>
                 </TabsList>
                 
