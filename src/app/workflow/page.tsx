@@ -7,10 +7,10 @@ import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import {
   Play,
   Save,
@@ -24,7 +24,6 @@ import {
   Smile,
   Move,
   User,
-  Zap,
   Layout,
   Layers,
   PlayCircle,
@@ -32,11 +31,16 @@ import {
   RotateCcw,
   FileJson,
   Upload,
-  X
+  X,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  ArrowRight
 } from 'lucide-react';
 
-// 节点类型定义
+// ===== 节点类型定义 =====
 type NodeType = 'seedance' | 'emotion' | 'tts' | 'action' | 'camera' | 'pose' | 'output';
+type NodeStatus = 'idle' | 'running' | 'success' | 'error';
 
 // 节点接口
 interface WorkflowNode {
@@ -45,6 +49,9 @@ interface WorkflowNode {
   x: number;
   y: number;
   config: any;
+  status?: NodeStatus;
+  output?: any;
+  error?: string;
 }
 
 // 连接接口
@@ -55,7 +62,7 @@ interface WorkflowConnection {
 }
 
 // 节点类型配置
-const NODE_TYPES = {
+const NODE_TYPES: Record<NodeType, { name: string; icon: any; color: string; description: string; defaultConfig: any }> = {
   seedance: {
     name: 'Seedance 视频模型',
     icon: Video,
@@ -65,7 +72,8 @@ const NODE_TYPES = {
       model: 'doubao-seedance-1-5-pro-251215',
       duration: 8,
       ratio: '16:9',
-      prompt: ''
+      prompt: '',
+      firstFrameUrl: ''
     }
   },
   emotion: {
@@ -83,7 +91,7 @@ const NODE_TYPES = {
     name: 'TTS 语音合成',
     icon: Mic,
     color: 'bg-green-500',
-    description: '文本转语音',
+    description: '文本转语音描述',
     defaultConfig: {
       text: '',
       voice: 'female',
@@ -193,6 +201,252 @@ const RATIOS = [
   { value: '4:3', label: '4:3' }
 ];
 
+// ===== 拓扑排序工具函数 =====
+function topologicalSort(nodes: WorkflowNode[], connections: WorkflowConnection[]): string[] {
+  const inDegree = new Map<string, number>();
+  const adjacencyList = new Map<string, string[]>();
+  
+  nodes.forEach(node => {
+    inDegree.set(node.id, 0);
+    adjacencyList.set(node.id, []);
+  });
+  
+  connections.forEach(conn => {
+    adjacencyList.get(conn.from)?.push(conn.to);
+    inDegree.set(conn.to, (inDegree.get(conn.to) || 0) + 1);
+  });
+  
+  const queue: string[] = [];
+  const result: string[] = [];
+  
+  inDegree.forEach((degree, id) => {
+    if (degree === 0) queue.push(id);
+  });
+  
+  while (queue.length > 0) {
+    const nodeId = queue.shift()!;
+    result.push(nodeId);
+    
+    const neighbors = adjacencyList.get(nodeId) || [];
+    neighbors.forEach(neighborId => {
+      const newDegree = (inDegree.get(neighborId) || 0) - 1;
+      inDegree.set(neighborId, newDegree);
+      if (newDegree === 0) queue.push(neighborId);
+    });
+  }
+  
+  return result;
+}
+
+// ===== 工作流执行引擎 =====
+class WorkflowEngine {
+  nodes: WorkflowNode[];
+  connections: WorkflowConnection[];
+  onNodeStatusChange: (nodeId: string, status: NodeStatus, output?: any, error?: string) => void;
+  onProgress: (progress: number, message: string) => void;
+  abortController: AbortController;
+
+  constructor(
+    nodes: WorkflowNode[],
+    connections: WorkflowConnection[],
+    onNodeStatusChange: (nodeId: string, status: NodeStatus, output?: any, error?: string) => void,
+    onProgress: (progress: number, message: string) => void
+  ) {
+    this.nodes = nodes;
+    this.connections = connections;
+    this.onNodeStatusChange = onNodeStatusChange;
+    this.onProgress = onProgress;
+    this.abortController = new AbortController();
+  }
+
+  abort() {
+    this.abortController.abort();
+  }
+
+  async execute(): Promise<any[]> {
+    const executionOrder = topologicalSort(this.nodes, this.connections);
+    const results = new Map<string, any>();
+    const seedanceResults: any[] = [];
+
+    for (let i = 0; i < executionOrder.length; i++) {
+      if (this.abortController.signal.aborted) {
+        throw new Error('执行已取消');
+      }
+
+      const nodeId = executionOrder[i];
+      const node = this.nodes.find(n => n.id === nodeId);
+      if (!node) continue;
+
+      this.onNodeStatusChange(nodeId, 'running');
+      this.onProgress(
+        Math.round((i / executionOrder.length) * 100),
+        `正在执行: ${NODE_TYPES[node.type].name}...`
+      );
+
+      try {
+        // 获取输入节点的输出
+        const inputNodes = this.connections
+          .filter(c => c.to === nodeId)
+          .map(c => this.nodes.find(n => n.id === c.from))
+          .filter(Boolean) as WorkflowNode[];
+
+        const inputData = inputNodes.reduce((acc, inputNode) => {
+          if (results.has(inputNode.id)) {
+            acc[inputNode.type] = results.get(inputNode.id);
+          }
+          return acc;
+        }, {} as any);
+
+        const output = await this.executeNode(node, inputData);
+        results.set(nodeId, output);
+        this.onNodeStatusChange(nodeId, 'success', output);
+
+        // 收集 seedance 节点的输出
+        if (node.type === 'seedance' && output?.videoUrl) {
+          seedanceResults.push(output);
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : '执行失败';
+        this.onNodeStatusChange(nodeId, 'error', undefined, errorMessage);
+        throw new Error(`节点 "${NODE_TYPES[node.type].name}" 执行失败: ${errorMessage}`);
+      }
+    }
+
+    this.onProgress(100, '执行完成！');
+    return seedanceResults;
+  }
+
+  async executeNode(node: WorkflowNode, inputData: any): Promise<any> {
+    switch (node.type) {
+      case 'seedance':
+        return this.executeSeedanceNode(node, inputData);
+      case 'emotion':
+        return this.executeEmotionNode(node, inputData);
+      case 'tts':
+        return this.executeTTSNode(node, inputData);
+      case 'action':
+        return this.executeActionNode(node, inputData);
+      case 'camera':
+        return this.executeCameraNode(node, inputData);
+      case 'pose':
+        return this.executePoseNode(node, inputData);
+      case 'output':
+        return this.executeOutputNode(node, inputData);
+      default:
+        return {};
+    }
+  }
+
+  async executeSeedanceNode(node: WorkflowNode, inputData: any): Promise<any> {
+    const { prompt, duration, ratio, model, firstFrameUrl } = node.config;
+
+    // 合并所有输入的提示词
+    let finalPrompt = prompt || '';
+    
+    if (inputData.emotion) {
+      finalPrompt += `, ${inputData.emotion.emotion}表情`;
+    }
+    if (inputData.action) {
+      finalPrompt += `, ${inputData.action.action}动作`;
+    }
+    if (inputData.pose) {
+      finalPrompt += `, ${inputData.pose.pose}姿态`;
+    }
+    if (inputData.camera) {
+      finalPrompt += `, ${inputData.camera.movement}运镜`;
+    }
+    if (inputData.tts) {
+      finalPrompt += `, 正在说：${inputData.tts.text}`;
+    }
+
+    if (!finalPrompt.trim()) {
+      finalPrompt = '一个美丽的自然风景，高质量';
+    }
+
+    const requestBody: any = {
+      prompt: finalPrompt.trim(),
+      duration: duration || 8,
+      ratio: ratio || '16:9',
+      model: model || 'doubao-seedance-1-5-pro-251215'
+    };
+
+    // 如果有前一个视频的输出，使用其最后一帧作为首帧
+    if (firstFrameUrl) {
+      requestBody.firstFrameUrl = firstFrameUrl;
+    }
+
+    const response = await fetch('/api/generate-video', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody),
+      signal: this.abortController.signal
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || '视频生成失败');
+    }
+
+    return {
+      videoUrl: data.videoUrl,
+      prompt: finalPrompt,
+      duration,
+      ratio
+    };
+  }
+
+  executeEmotionNode(node: WorkflowNode, inputData: any): any {
+    return {
+      emotion: node.config.emotion,
+      intensity: node.config.intensity,
+      blink: node.config.blink
+    };
+  }
+
+  executeTTSNode(node: WorkflowNode, inputData: any): any {
+    return {
+      text: node.config.text,
+      voice: node.config.voice,
+      speed: node.config.speed,
+      pitch: node.config.pitch
+    };
+  }
+
+  executeActionNode(node: WorkflowNode, inputData: any): any {
+    return {
+      action: node.config.action,
+      repeat: node.config.repeat,
+      speed: node.config.speed
+    };
+  }
+
+  executeCameraNode(node: WorkflowNode, inputData: any): any {
+    return {
+      movement: node.config.movement,
+      zoom: node.config.zoom,
+      pan: node.config.pan,
+      tilt: node.config.tilt
+    };
+  }
+
+  executePoseNode(node: WorkflowNode, inputData: any): any {
+    return {
+      pose: node.config.pose,
+      rotation: node.config.rotation,
+      position: node.config.position
+    };
+  }
+
+  executeOutputNode(node: WorkflowNode, inputData: any): any {
+    return {
+      format: node.config.format,
+      quality: node.config.quality,
+      ...inputData
+    };
+  }
+}
+
 export default function WorkflowBuilder() {
   const [nodes, setNodes] = useState<WorkflowNode[]>([]);
   const [connections, setConnections] = useState<WorkflowConnection[]>([]);
@@ -205,9 +459,12 @@ export default function WorkflowBuilder() {
   const [connectLine, setConnectLine] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [runProgress, setRunProgress] = useState(0);
-  const [outputVideoUrl, setOutputVideoUrl] = useState<string | null>(null);
+  const [runMessage, setRunMessage] = useState('');
+  const [outputVideos, setOutputVideos] = useState<any[]>([]);
   const [showTemplates, setShowTemplates] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  const [executionLogs, setExecutionLogs] = useState<string[]>([]);
+  const engineRef = useRef<WorkflowEngine | null>(null);
   
   const canvasRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -217,11 +474,16 @@ export default function WorkflowBuilder() {
     setIsClient(true);
   }, []);
 
-  // 生成唯一ID - 只在客户端使用
+  // 生成唯一ID
   const generateId = useCallback(() => {
     if (!isClient) return 'temp-id';
     return Math.random().toString(36).substr(2, 9);
   }, [isClient]);
+
+  // 添加日志
+  const addLog = useCallback((message: string) => {
+    setExecutionLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${message}`]);
+  }, []);
 
   // 添加节点
   const addNode = (type: NodeType) => {
@@ -231,15 +493,21 @@ export default function WorkflowBuilder() {
       type,
       x: isClient ? 100 + Math.random() * 200 : 150,
       y: isClient ? 100 + Math.random() * 200 : 150,
-      config: { ...nodeType.defaultConfig }
+      config: { ...nodeType.defaultConfig },
+      status: 'idle'
     };
-    setNodes([...nodes, newNode]);
+    setNodes(prev => [...prev, newNode]);
+    addLog(`添加节点: ${nodeType.name}`);
   };
 
   // 删除节点
   const deleteNode = (id: string) => {
-    setNodes(nodes.filter(n => n.id !== id));
-    setConnections(connections.filter(c => c.from !== id && c.to !== id));
+    const node = nodes.find(n => n.id === id);
+    if (node) {
+      addLog(`删除节点: ${NODE_TYPES[node.type].name}`);
+    }
+    setNodes(prev => prev.filter(n => n.id !== id));
+    setConnections(prev => prev.filter(c => c.from !== id && c.to !== id));
     if (selectedNode?.id === id) {
       setSelectedNode(null);
     }
@@ -247,12 +515,19 @@ export default function WorkflowBuilder() {
 
   // 更新节点配置
   const updateNodeConfig = (id: string, config: any) => {
-    setNodes(nodes.map(n => 
+    setNodes(prev => prev.map(n => 
       n.id === id ? { ...n, config: { ...n.config, ...config } } : n
     ));
     if (selectedNode?.id === id) {
       setSelectedNode(prev => prev ? { ...prev, config: { ...prev.config, ...config } } : null);
     }
+  };
+
+  // 更新节点状态
+  const updateNodeStatus = (nodeId: string, status: NodeStatus, output?: any, error?: string) => {
+    setNodes(prev => prev.map(n => 
+      n.id === nodeId ? { ...n, status, output, error } : n
+    ));
   };
 
   // 节点拖拽开始
@@ -269,7 +544,7 @@ export default function WorkflowBuilder() {
     if (isDragging && dragNode) {
       const newX = e.clientX - dragStart.x;
       const newY = e.clientY - dragStart.y;
-      setNodes(nodes.map(n => 
+      setNodes(prev => prev.map(n => 
         n.id === dragNode ? { ...n, x: newX, y: newY } : n
       ));
     }
@@ -308,7 +583,6 @@ export default function WorkflowBuilder() {
   const endConnection = (e: React.MouseEvent, nodeId: string) => {
     e.stopPropagation();
     if (isConnecting && connectFrom && connectFrom !== nodeId) {
-      // 检查是否已存在连接
       const exists = connections.some(c => 
         (c.from === connectFrom && c.to === nodeId) ||
         (c.from === nodeId && c.to === connectFrom)
@@ -319,7 +593,12 @@ export default function WorkflowBuilder() {
           from: connectFrom,
           to: nodeId
         };
-        setConnections([...connections, newConnection]);
+        setConnections(prev => [...prev, newConnection]);
+        const fromNode = nodes.find(n => n.id === connectFrom);
+        const toNode = nodes.find(n => n.id === nodeId);
+        if (fromNode && toNode) {
+          addLog(`连接: ${NODE_TYPES[fromNode.type].name} → ${NODE_TYPES[toNode.type].name}`);
+        }
       }
     }
     setIsConnecting(false);
@@ -333,60 +612,67 @@ export default function WorkflowBuilder() {
     return node ? { x: node.x + 150, y: node.y + 40 } : { x: 0, y: 0 };
   };
 
-  // 执行工作流
+  // ===== 执行工作流 =====
   const runWorkflow = async () => {
-    if (nodes.length === 0) return;
-    
+    if (nodes.length === 0) {
+      alert('请先添加节点！');
+      return;
+    }
+
+    // 重置所有节点状态
+    setNodes(prev => prev.map(n => ({ ...n, status: 'idle', output: undefined, error: undefined })));
+    setExecutionLogs([]);
     setIsRunning(true);
     setRunProgress(0);
-    setOutputVideoUrl(null);
-    
+    setRunMessage('准备执行...');
+    setOutputVideos([]);
+
+    addLog('开始执行工作流...');
+
     try {
-      // 1. 找到 Seedance 节点
-      const seedanceNode = nodes.find(n => n.type === 'seedance');
-      if (!seedanceNode) {
-        alert('请先添加 Seedance 视频模型节点！');
-        setIsRunning(false);
-        return;
-      }
+      const engine = new WorkflowEngine(
+        nodes,
+        connections,
+        (nodeId, status, output, error) => {
+          updateNodeStatus(nodeId, status, output, error);
+          const node = nodes.find(n => n.id === nodeId);
+          if (node) {
+            if (status === 'success') {
+              addLog(`✅ ${NODE_TYPES[node.type].name} 执行成功`);
+            } else if (status === 'error') {
+              addLog(`❌ ${NODE_TYPES[node.type].name} 执行失败: ${error}`);
+            } else if (status === 'running') {
+              addLog(`⏳ ${NODE_TYPES[node.type].name} 执行中...`);
+            }
+          }
+        },
+        (progress, message) => {
+          setRunProgress(progress);
+          setRunMessage(message);
+        }
+      );
+
+      engineRef.current = engine;
+      const results = await engine.execute();
       
-      const { prompt, duration, ratio, model } = seedanceNode.config;
-      setRunProgress(10);
-      
-      // 2. 调用视频生成 API
-      console.log('开始生成视频...');
-      console.log('提示词:', prompt);
-      console.log('时长:', duration, '秒');
-      
-      const response = await fetch('/api/generate-video', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: prompt || '一个美丽的自然风景，高质量，4K分辨率',
-          duration: duration || 8,
-          ratio: ratio || '16:9',
-          model: model || 'doubao-seedance-1-5-pro-251215'
-        })
-      });
-      
-      setRunProgress(50);
-      
-      const data = await response.json();
-      setRunProgress(80);
-      
-      if (!response.ok) {
-        throw new Error(data.error || '视频生成失败');
-      }
-      
-      console.log('视频生成成功！', data.videoUrl);
-      setOutputVideoUrl(data.videoUrl);
-      setRunProgress(100);
-      
+      setOutputVideos(results);
+      addLog(`工作流执行完成！生成 ${results.length} 个视频`);
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '执行失败';
+      addLog(`❌ 工作流执行失败: ${errorMessage}`);
       console.error('工作流执行失败:', error);
-      alert(error instanceof Error ? error.message : '执行失败');
+      alert(errorMessage);
     } finally {
       setIsRunning(false);
+      engineRef.current = null;
+    }
+  };
+
+  // 取消执行
+  const cancelExecution = () => {
+    if (engineRef.current) {
+      engineRef.current.abort();
+      addLog('用户取消执行');
     }
   };
 
@@ -402,6 +688,7 @@ export default function WorkflowBuilder() {
     link.download = `workflow-${Date.now()}.json`;
     link.click();
     URL.revokeObjectURL(url);
+    addLog('工作流已保存');
   };
 
   // 加载工作流
@@ -414,8 +701,10 @@ export default function WorkflowBuilder() {
           const workflow = JSON.parse(event.target?.result as string);
           setNodes(workflow.nodes || []);
           setConnections(workflow.connections || []);
+          addLog('工作流已加载');
         } catch (error) {
           console.error('加载工作流失败:', error);
+          alert('加载工作流失败');
         }
       };
       reader.readAsText(file);
@@ -429,7 +718,6 @@ export default function WorkflowBuilder() {
 
     switch (template) {
       case 'basic':
-        // 基础模板：Seedance + TTS + Output
         templateNodes = [
           { id: generateId(), type: 'seedance', x: 100, y: 200, config: { ...NODE_TYPES.seedance.defaultConfig } },
           { id: generateId(), type: 'tts', x: 400, y: 100, config: { ...NODE_TYPES.tts.defaultConfig } },
@@ -442,7 +730,6 @@ export default function WorkflowBuilder() {
         break;
 
       case 'avatar':
-        // 数字人模板：全部节点
         templateNodes = [
           { id: generateId(), type: 'tts', x: 100, y: 100, config: { ...NODE_TYPES.tts.defaultConfig } },
           { id: generateId(), type: 'emotion', x: 100, y: 300, config: { ...NODE_TYPES.emotion.defaultConfig } },
@@ -463,7 +750,6 @@ export default function WorkflowBuilder() {
         break;
 
       case 'story':
-        // 故事视频模板
         templateNodes = [
           { id: generateId(), type: 'seedance', x: 100, y: 150, config: { ...NODE_TYPES.seedance.defaultConfig, prompt: '开头场景' } },
           { id: generateId(), type: 'camera', x: 400, y: 100, config: { ...NODE_TYPES.camera.defaultConfig, movement: 'zoom_in' } },
@@ -482,9 +768,10 @@ export default function WorkflowBuilder() {
         break;
     }
 
-    setNodes(templateNodes);
+    setNodes(templateNodes.map(n => ({ ...n, status: 'idle' })));
     setConnections(templateConnections);
     setShowTemplates(false);
+    addLog(`加载模板: ${template === 'basic' ? '基础视频生成' : template === 'avatar' ? '数字人全功能' : '故事视频'}`);
   };
 
   // 清空画布
@@ -493,6 +780,9 @@ export default function WorkflowBuilder() {
       setNodes([]);
       setConnections([]);
       setSelectedNode(null);
+      setOutputVideos([]);
+      setExecutionLogs([]);
+      addLog('画布已清空');
     }
   };
 
@@ -504,6 +794,25 @@ export default function WorkflowBuilder() {
       </div>
     );
   }
+
+  // 获取节点状态颜色
+  const getStatusColor = (status?: NodeStatus) => {
+    switch (status) {
+      case 'running': return 'ring-2 ring-yellow-400 animate-pulse';
+      case 'success': return 'ring-2 ring-green-400';
+      case 'error': return 'ring-2 ring-red-400';
+      default: return '';
+    }
+  };
+
+  const getStatusIcon = (status?: NodeStatus) => {
+    switch (status) {
+      case 'running': return <Loader2 className="w-4 h-4 animate-spin text-yellow-400" />;
+      case 'success': return <CheckCircle2 className="w-4 h-4 text-green-400" />;
+      case 'error': return <AlertCircle className="w-4 h-4 text-red-400" />;
+      default: return null;
+    }
+  };
 
   return (
     <div className="flex flex-col h-screen bg-background">
@@ -517,12 +826,12 @@ export default function WorkflowBuilder() {
             </h1>
             <div className="flex items-center gap-2">
               <Button 
-                onClick={runWorkflow} 
-                disabled={isRunning || nodes.length === 0}
-                className="gap-2"
+                onClick={isRunning ? cancelExecution : runWorkflow} 
+                disabled={nodes.length === 0}
+                className={`gap-2 ${isRunning ? 'bg-red-500 hover:bg-red-600' : ''}`}
               >
                 {isRunning ? <PauseCircle className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                {isRunning ? '执行中...' : '执行工作流'}
+                {isRunning ? '取消执行' : '执行工作流'}
               </Button>
               <Button onClick={saveWorkflow} variant="secondary" className="gap-2">
                 <Save className="w-4 h-4" />
@@ -560,7 +869,7 @@ export default function WorkflowBuilder() {
           {isRunning && (
             <div className="flex items-center gap-4">
               <div className="text-sm text-muted-foreground">
-                执行进度: {runProgress}%
+                {runMessage} ({runProgress}%)
               </div>
               <div className="w-48 bg-secondary rounded-full h-2">
                 <div 
@@ -653,7 +962,7 @@ export default function WorkflowBuilder() {
                     key={node.id}
                     className={`absolute w-72 bg-card rounded-xl border-2 shadow-lg transition-all cursor-move ${
                       isSelected ? 'border-primary ring-2 ring-primary/20' : 'border-border hover:border-border/80'
-                    }`}
+                    } ${getStatusColor(node.status)}`}
                     style={{ left: node.x, top: node.y }}
                     onMouseDown={(e) => handleNodeMouseDown(e, node)}
                   >
@@ -663,15 +972,18 @@ export default function WorkflowBuilder() {
                         <nodeType.icon className="w-5 h-5" />
                         <span className="font-semibold">{nodeType.name}</span>
                       </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteNode(node.id);
-                        }}
-                        className="text-white/80 hover:text-white"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        {getStatusIcon(node.status)}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteNode(node.id);
+                          }}
+                          className="text-white/80 hover:text-white"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                     
                     {/* 连接点 */}
@@ -689,6 +1001,16 @@ export default function WorkflowBuilder() {
                       <div className="text-xs text-muted-foreground mb-2">
                         ID: {node.id}
                       </div>
+                      {node.status === 'error' && node.error && (
+                        <div className="text-xs text-red-400 mt-2">
+                          错误: {node.error}
+                        </div>
+                      )}
+                      {node.status === 'success' && node.output && (
+                        <div className="text-xs text-green-400 mt-2">
+                          ✓ 执行成功
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -727,7 +1049,6 @@ export default function WorkflowBuilder() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="doubao-seedance-1-5-pro-251215">Seedance 1.5 Pro</SelectItem>
-                          <SelectItem value="doubao-seedance-2-0-pro">Seedance 2.0 Pro</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -1098,30 +1419,56 @@ export default function WorkflowBuilder() {
         </div>
       </div>
 
-      {/* 输出视频区域 */}
-      {outputVideoUrl && (
-        <div className="border-t border-border p-4 bg-card">
-          <div className="max-w-2xl mx-auto">
-            <h3 className="text-lg font-semibold mb-2">输出视频</h3>
-            <div className="aspect-video bg-black rounded-lg overflow-hidden">
-              <video 
-                src={outputVideoUrl} 
-                controls 
-                className="w-full h-full"
-              />
+      {/* 底部输出区域 */}
+      <div className="flex border-t border-border">
+        {/* 执行日志 */}
+        <div className="w-1/2 border-r border-border bg-card p-4">
+          <h3 className="text-sm font-semibold mb-2">执行日志</h3>
+          <ScrollArea className="h-40">
+            <div className="space-y-1">
+              {executionLogs.length === 0 ? (
+                <p className="text-xs text-muted-foreground">等待执行...</p>
+              ) : (
+                executionLogs.map((log, index) => (
+                  <p key={index} className="text-xs font-mono">{log}</p>
+                ))
+              )}
             </div>
-            <div className="mt-4 flex gap-2">
-              <Button className="gap-2">
-                <Download className="w-4 h-4" />
-                下载视频
-              </Button>
-              <Button variant="secondary" onClick={() => setOutputVideoUrl(null)}>
-                关闭
-              </Button>
-            </div>
-          </div>
+          </ScrollArea>
         </div>
-      )}
+
+        {/* 输出视频 */}
+        <div className="w-1/2 bg-card p-4">
+          <h3 className="text-sm font-semibold mb-2">
+            输出视频 {outputVideos.length > 0 && `(${outputVideos.length})`}
+          </h3>
+          <ScrollArea className="h-40">
+            <div className="space-y-2">
+              {outputVideos.length === 0 ? (
+                <p className="text-xs text-muted-foreground">执行后将在此处显示视频</p>
+              ) : (
+                outputVideos.map((video, index) => (
+                  <div key={index} className="flex items-center gap-2 p-2 border border-border rounded-lg">
+                    <Video className="w-4 h-4 text-primary" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium truncate">视频 {index + 1}</p>
+                      <p className="text-xs text-muted-foreground truncate">{video.prompt}</p>
+                    </div>
+                    <a 
+                      href={video.videoUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-xs text-primary hover:underline"
+                    >
+                      查看
+                    </a>
+                  </div>
+                ))
+              )}
+            </div>
+          </ScrollArea>
+        </div>
+      </div>
 
       {/* 模板弹窗 */}
       {showTemplates && (
