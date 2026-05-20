@@ -454,6 +454,8 @@ export default function WorkflowBuilder() {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [dragNode, setDragNode] = useState<string | null>(null);
+  const [mouseDownPos, setMouseDownPos] = useState<{ x: number; y: number } | null>(null);
+  const [pendingDragNode, setPendingDragNode] = useState<WorkflowNode | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectFrom, setConnectFrom] = useState<string | null>(null);
   const [connectLine, setConnectLine] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
@@ -530,17 +532,28 @@ export default function WorkflowBuilder() {
     ));
   };
 
-  // 节点拖拽开始
+  // 节点鼠标按下（区分点击和拖拽）
   const handleNodeMouseDown = (e: React.MouseEvent, node: WorkflowNode) => {
     e.stopPropagation();
-    setIsDragging(true);
-    setDragNode(node.id);
+    if (e.button !== 0) return; // 只处理左键
+    setMouseDownPos({ x: e.clientX, y: e.clientY });
+    setPendingDragNode(node);
     setDragStart({ x: e.clientX - node.x, y: e.clientY - node.y });
-    setSelectedNode(node);
   };
 
   // 画布鼠标移动
   const handleCanvasMouseMove = (e: React.MouseEvent) => {
+    // 判断是否开始拖拽（移动距离超过阈值）
+    if (pendingDragNode && mouseDownPos && !isDragging) {
+      const dx = e.clientX - mouseDownPos.x;
+      const dy = e.clientY - mouseDownPos.y;
+      if (Math.sqrt(dx * dx + dy * dy) > 3) {
+        setIsDragging(true);
+        setDragNode(pendingDragNode.id);
+        setSelectedNode(pendingDragNode);
+      }
+    }
+    
     if (isDragging && dragNode) {
       const newX = e.clientX - dragStart.x;
       const newY = e.clientY - dragStart.y;
@@ -565,8 +578,14 @@ export default function WorkflowBuilder() {
 
   // 画布鼠标释放
   const handleCanvasMouseUp = () => {
+    // 如果是点击（没有触发拖拽），则选择节点
+    if (pendingDragNode && !isDragging) {
+      setSelectedNode(pendingDragNode);
+    }
     setIsDragging(false);
     setDragNode(null);
+    setMouseDownPos(null);
+    setPendingDragNode(null);
     setIsConnecting(false);
     setConnectFrom(null);
     setConnectLine(null);
