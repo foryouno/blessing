@@ -2731,7 +2731,7 @@ export default function VideoGenerator() {
                             }
                           }}
                           min={5}
-                          max={15}
+                          max={12}
                           step={1}
                           disabled={isGenerating || (autoDuration && activeTab === 'avatar')}
                           className={`${autoDuration && activeTab === 'avatar' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
