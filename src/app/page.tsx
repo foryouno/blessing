@@ -33,6 +33,7 @@ interface ImageHistoryItem {
   size: string;
   ratio: string;
   model: string;
+  referenceImageUrl?: string;
   createdAt: string;
 }
 
@@ -314,6 +315,7 @@ export default function VideoGenerator() {
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [imageModel, setImageModel] = useState('doubao-seedream-5-0-260128');
   const [imageRatio, setImageRatio] = useState('16:9');
+  const [imageReferenceUrl, setImageReferenceUrl] = useState<string | null>(null);
   
   // 语音选项
   const voiceOptions = [
@@ -960,7 +962,8 @@ export default function VideoGenerator() {
         body: JSON.stringify({
           prompt: imagePrompt,
           size: selectedSize,
-          model: imageModel
+          model: imageModel,
+          ...(imageReferenceUrl ? { image: imageReferenceUrl } : {})
         }),
       });
 
@@ -980,6 +983,7 @@ export default function VideoGenerator() {
           size: selectedSize,
           ratio: imageRatio,
           model: imageModel,
+          ...(imageReferenceUrl ? { referenceImageUrl: imageReferenceUrl } : {}),
           createdAt: new Date().toISOString()
         });
       }
@@ -2577,6 +2581,84 @@ export default function VideoGenerator() {
                         placeholder="描述您想要生成的图片，例如：一只可爱的橘猫在阳光下的草地上玩耍，背景是蓝天白云"
                         className="min-h-32 bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-500"
                       />
+                    </div>
+
+                    {/* 参考图片 */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <Label className="text-white text-sm font-medium">
+                          🎯 参考图片（可选）
+                        </Label>
+                        {imageReferenceUrl && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setImageReferenceUrl(null)}
+                            className="text-red-400 hover:text-red-300 h-6 px-2"
+                          >
+                            <X className="w-3 h-3 mr-1" />
+                            清除
+                          </Button>
+                        )}
+                      </div>
+                      
+                      {!imageReferenceUrl ? (
+                        <div className="flex gap-2">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              
+                              const formData = new FormData();
+                              formData.append('image', file);
+                              
+                              try {
+                                const response = await fetch('/api/upload-image', {
+                                  method: 'POST',
+                                  body: formData,
+                                });
+                                const data = await response.json();
+                                if (data.success && data.imageUrl) {
+                                  setImageReferenceUrl(data.imageUrl);
+                                } else {
+                                  setError('图片上传失败');
+                                }
+                              } catch {
+                                setError('图片上传失败');
+                              }
+                              
+                              // 重置 input
+                              e.target.value = '';
+                            }}
+                            className="hidden"
+                            id="image-reference-upload"
+                          />
+                          <label
+                            htmlFor="image-reference-upload"
+                            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-slate-800/50 border border-slate-600 border-dashed rounded-lg cursor-pointer hover:bg-slate-700/50 transition-colors"
+                          >
+                            <Upload className="w-4 h-4 text-slate-400" />
+                            <span className="text-sm text-slate-400">上传参考图片</span>
+                          </label>
+                        </div>
+                      ) : (
+                        <div className="relative rounded-lg overflow-hidden border border-purple-500/30">
+                          <img
+                            src={imageReferenceUrl}
+                            alt="参考图片"
+                            className="w-full h-32 object-contain bg-slate-800/50"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end justify-center pb-2">
+                            <span className="text-xs text-white/80">参考图片</span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      <p className="text-xs text-slate-500 mt-2">
+                        上传参考图片后，AI 会根据参考图片的风格、构图或内容进行生成
+                      </p>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
