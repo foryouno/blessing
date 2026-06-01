@@ -10,13 +10,33 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
+    // 文件大小限制：最大 10MB
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        { error: `File size exceeds 10MB limit. Current size: ${(file.size / 1024 / 1024).toFixed(2)}MB` },
+        { status: 400 }
+      );
+    }
+
+    // 文件格式限制：仅支持图片格式
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+    const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
+    const allowedExts = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+    
+    if (!allowedTypes.includes(file.type) && !allowedExts.includes(fileExt)) {
+      return NextResponse.json(
+        { error: `Unsupported file format. Allowed: JPG, JPEG, PNG, WEBP, GIF` },
+        { status: 400 }
+      );
+    }
+
     const storage = new S3Storage();
     
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     
-    const fileExt = file.name.split('.').pop() || 'jpg';
-    const fileName = `reference-images/${Date.now()}.${fileExt}`;
+    const fileName = `reference-images/${Date.now()}.${fileExt || 'jpg'}`;
     
     const key = await storage.uploadFile({
       fileContent: buffer,

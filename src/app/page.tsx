@@ -2606,29 +2606,46 @@ export default function VideoGenerator() {
                         <div className="flex gap-2">
                           <input
                             type="file"
-                            accept="image/*"
+                            accept=".jpg,.jpeg,.png,.webp,.gif"
                             onChange={async (e) => {
                               const file = e.target.files?.[0];
                               if (!file) return;
-                              
+
+                              // 前端文件大小校验：最大 10MB
+                              const MAX_FILE_SIZE = 10 * 1024 * 1024;
+                              if (file.size > MAX_FILE_SIZE) {
+                                setError(`文件大小超过 10MB 限制，当前大小：${(file.size / 1024 / 1024).toFixed(2)}MB`);
+                                e.target.value = '';
+                                return;
+                              }
+
+                              // 前端格式校验
+                              const allowedExts = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+                              const ext = file.name.split('.').pop()?.toLowerCase() || '';
+                              if (!allowedExts.includes(ext)) {
+                                setError(`不支持的文件格式，仅支持：JPG、JPEG、PNG、WEBP、GIF`);
+                                e.target.value = '';
+                                return;
+                              }
+
                               const formData = new FormData();
-                              formData.append('image', file);
-                              
+                              formData.append('file', file);
+
                               try {
                                 const response = await fetch('/api/upload-image', {
                                   method: 'POST',
                                   body: formData,
                                 });
                                 const data = await response.json();
-                                if (data.success && data.imageUrl) {
+                                if (data.imageUrl) {
                                   setImageReferenceUrl(data.imageUrl);
                                 } else {
-                                  setError('图片上传失败');
+                                  setError(data.error || '图片上传失败');
                                 }
                               } catch {
                                 setError('图片上传失败');
                               }
-                              
+
                               // 重置 input
                               e.target.value = '';
                             }}
@@ -2658,6 +2675,9 @@ export default function VideoGenerator() {
                       
                       <p className="text-xs text-slate-500 mt-2">
                         上传参考图片后，AI 会根据参考图片的风格、构图或内容进行生成
+                      </p>
+                      <p className="text-xs text-slate-600 mt-1">
+                        限制：JPG/JPEG/PNG/WEBP/GIF，最大 10MB
                       </p>
                     </div>
 
