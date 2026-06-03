@@ -972,13 +972,15 @@ export default function VideoGenerator() {
         throw new Error(data.error || '图片生成失败');
       }
 
-      if (data.success && data.imageUrls && data.imageUrls.length > 0) {
-        setImageUrl(data.imageUrls[0]);
+      // 支持两种返回格式：imageUrl（单张）或 imageUrls（数组）
+      const generatedImageUrl = data.imageUrl || (data.imageUrls && data.imageUrls.length > 0 ? data.imageUrls[0] : null);
+      if (data.success && generatedImageUrl) {
+        setImageUrl(generatedImageUrl);
         
         // 保存到历史记录
         saveToImageHistory({
           id: Date.now().toString(),
-          imageUrl: data.imageUrls[0],
+          imageUrl: generatedImageUrl,
           prompt: imagePrompt,
           size: selectedSize,
           ratio: imageRatio,
