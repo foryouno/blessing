@@ -972,25 +972,13 @@ export default function VideoGenerator() {
         throw new Error(data.error || '图片生成失败');
       }
 
-      // API 返回格式: { success: true, data: { imageUrl, taskId, status } }
-      // 兼容处理：data.data?.imageUrl 或 data.imageUrl
-      const resultData = data.data || data;
-      const generatedImageUrl = resultData.imageUrl || (resultData.imageUrls && resultData.imageUrls.length > 0 ? resultData.imageUrls[0] : null);
-      if (data.success && generatedImageUrl) {
-        setImageUrl(generatedImageUrl);
-
-        // 延迟滚动到生成的图片区域
-        setTimeout(() => {
-          const imageResultElement = document.getElementById('generated-image-result');
-          if (imageResultElement) {
-            imageResultElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
-        }, 100);
-
+      if (data.success && data.imageUrls && data.imageUrls.length > 0) {
+        setImageUrl(data.imageUrls[0]);
+        
         // 保存到历史记录
         saveToImageHistory({
           id: Date.now().toString(),
-          imageUrl: generatedImageUrl,
+          imageUrl: data.imageUrls[0],
           prompt: imagePrompt,
           size: selectedSize,
           ratio: imageRatio,
@@ -2768,7 +2756,7 @@ export default function VideoGenerator() {
 
                     {/* 生成的图片展示 */}
                     {imageUrl && (
-                      <Card id="generated-image-result" className="p-4 bg-slate-700/50 border-slate-600">
+                      <Card className="p-4 bg-slate-700/50 border-slate-600">
                         <h4 className="text-white font-medium mb-3">生成的图片</h4>
                         <div className="relative rounded-lg overflow-hidden">
                           <img
@@ -2804,13 +2792,16 @@ export default function VideoGenerator() {
                           <Button
                             variant="secondary"
                             onClick={() => {
-                              setFirstFrameUrl(imageUrl);
-                              setActiveTab('images');
+                              if (activeTab === 'avatar-voice') {
+                                setAvatarImageUrl(imageUrl);
+                              } else {
+                                setFirstFrameUrl(imageUrl);
+                              }
                             }}
                             className="flex-1"
                           >
                             <Upload className="w-4 h-4 mr-2" />
-                            用作首帧
+                            用作头像/首帧
                           </Button>
                         </div>
                       </Card>
