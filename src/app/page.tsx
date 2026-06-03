@@ -972,8 +972,10 @@ export default function VideoGenerator() {
         throw new Error(data.error || '图片生成失败');
       }
 
-      // 支持两种返回格式：imageUrl（单张）或 imageUrls（数组）
-      const generatedImageUrl = data.imageUrl || (data.imageUrls && data.imageUrls.length > 0 ? data.imageUrls[0] : null);
+      // API 返回格式: { success: true, data: { imageUrl, taskId, status } }
+      // 兼容处理：data.data?.imageUrl 或 data.imageUrl
+      const resultData = data.data || data;
+      const generatedImageUrl = resultData.imageUrl || (resultData.imageUrls && resultData.imageUrls.length > 0 ? resultData.imageUrls[0] : null);
       if (data.success && generatedImageUrl) {
         setImageUrl(generatedImageUrl);
 
