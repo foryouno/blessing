@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
 
       const generateParams: any = {
         prompt: validatedData.prompt,
-        size: '2K',
+        size: validatedData.size || '2K',
         model: validatedData.model || 'doubao-seedream-5-0-260128',
         watermark: true,
         optimizePromptMode: 'standard',

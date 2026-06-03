@@ -17,6 +17,7 @@ export interface GenerateImageRequest {
   prompt?: string;
   model?: string;
   image?: string;
+  size?: string;
 }
 
 export interface GenerateImageResponse {
