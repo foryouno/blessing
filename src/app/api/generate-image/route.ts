@@ -28,20 +28,26 @@ export async function POST(request: NextRequest) {
       const config = new Config();
       const client = new ImageGenerationClient(config, customHeaders);
 
-      const response = await client.generate({
+      const generateParams: any = {
         prompt: validatedData.prompt,
         size: '2K',
         model: validatedData.model || 'doubao-seedream-5-0-260128',
         watermark: true,
         optimizePromptMode: 'standard',
-      });
+      };
+
+      if (validatedData.image) {
+        generateParams.image = validatedData.image;
+      }
+
+      const response = await client.generate(generateParams);
 
       const helper = client.getResponseHelper(response);
 
       if (helper.success) {
         const resultData: GenerateImageResponse = {
           imageUrl: helper.imageUrls?.[0] || '',
-          taskId: response.id || '',
+          taskId: (response as any).id || '',
           status: 'completed'
         };
         return resultData;
@@ -60,7 +66,7 @@ export async function POST(request: NextRequest) {
     if (error instanceof z.ZodError) {
       return createErrorResponse(
         new ApiError('VALIDATION_ERROR', 'Request data validation failed', 400, {
-          errors: error.errors,
+          errors: error.issues,
         })
       );
     }

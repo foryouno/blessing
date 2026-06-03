@@ -16,6 +16,7 @@ export interface GenerateVideoResponse {
 export interface GenerateImageRequest {
   prompt?: string;
   model?: string;
+  image?: string;
 }
 
 export interface GenerateImageResponse {

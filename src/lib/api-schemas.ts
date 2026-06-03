@@ -12,6 +12,7 @@ export const generateVideoSchema = z.object({
 export const generateImageSchema = z.object({
   prompt: z.string().optional(),
   model: z.string().optional(),
+  image: z.string().optional(),
 });
 
 export const ttsSchema = z.object({

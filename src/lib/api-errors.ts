@@ -60,7 +60,7 @@ export function createErrorResponse(error: unknown): NextResponse<ApiErrorRespon
         error: {
           code: 'VALIDATION_ERROR',
           message: 'Request data validation failed',
-          details: { errors: (error as any).errors },
+          details: { errors: (error as any).issues },
         },
       },
       { status: 400 }

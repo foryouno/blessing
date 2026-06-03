@@ -18,9 +18,8 @@ export function createRateLimiter(config: RateLimitConfig) {
   const { maxRequests, windowMs } = config;
 
   return function rateLimiter(request: NextRequest): NextResponse | null {
-    const ip = request.headers.get('x-forwarded-for') ||
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
                request.headers.get('x-real-ip') ||
-               request.ip ||
                'unknown';
 
     const now = Date.now();

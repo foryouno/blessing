@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
     if (error instanceof z.ZodError) {
       return createErrorResponse(
         new ApiError('VALIDATION_ERROR', 'Request data validation failed', 400, {
-          errors: error.errors,
+          errors: error.issues,
         })
       );
     }
