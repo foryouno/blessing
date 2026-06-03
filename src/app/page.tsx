@@ -976,7 +976,15 @@ export default function VideoGenerator() {
       const generatedImageUrl = data.imageUrl || (data.imageUrls && data.imageUrls.length > 0 ? data.imageUrls[0] : null);
       if (data.success && generatedImageUrl) {
         setImageUrl(generatedImageUrl);
-        
+
+        // 延迟滚动到生成的图片区域
+        setTimeout(() => {
+          const imageResultElement = document.getElementById('generated-image-result');
+          if (imageResultElement) {
+            imageResultElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 100);
+
         // 保存到历史记录
         saveToImageHistory({
           id: Date.now().toString(),
@@ -2758,7 +2766,7 @@ export default function VideoGenerator() {
 
                     {/* 生成的图片展示 */}
                     {imageUrl && (
-                      <Card className="p-4 bg-slate-700/50 border-slate-600">
+                      <Card id="generated-image-result" className="p-4 bg-slate-700/50 border-slate-600">
                         <h4 className="text-white font-medium mb-3">生成的图片</h4>
                         <div className="relative rounded-lg overflow-hidden">
                           <img
@@ -2794,16 +2802,13 @@ export default function VideoGenerator() {
                           <Button
                             variant="secondary"
                             onClick={() => {
-                              if (activeTab === 'avatar-voice') {
-                                setAvatarImageUrl(imageUrl);
-                              } else {
-                                setFirstFrameUrl(imageUrl);
-                              }
+                              setFirstFrameUrl(imageUrl);
+                              setActiveTab('images');
                             }}
                             className="flex-1"
                           >
                             <Upload className="w-4 h-4 mr-2" />
-                            用作头像/首帧
+                            用作首帧
                           </Button>
                         </div>
                       </Card>
